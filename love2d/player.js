@@ -216,7 +216,7 @@ SOFTWARE.
         document.head.appendChild(elink);
       }
 
-      var pkg = 'game.love';
+      //var pkg = 'game.love';
       var Module = {};
 
       var data = cache[uri];
