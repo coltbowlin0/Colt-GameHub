@@ -198,7 +198,7 @@ SOFTWARE.
 
   Player.runPkgs = function(uri, cache, arg, canvas, ops) {
     return new Promise(function (resolve, reject) {
-      ops.base = ops.version + '/' + ((ops.compat) ? 'compat' : 'release');
+      ops.base = '../' + ops.version + '/' + ((ops.compat) ? 'compat' : 'release');
 
       var prefetch = [ 'love.wasm', 'love.js', 'love.worker.js' ];
       for (var i = 0; i < prefetch.length; i++) {
@@ -472,7 +472,7 @@ SOFTWARE.
 
   var uri = search.get('g');
   if (uri == null)
-    uri = 'nogame.love';
+    uri = 'loves/nogame.love';
   var arg = search.get('arg');
   if (arg) {
     try {
@@ -541,8 +541,8 @@ SOFTWARE.
       })
       .catch(function (err) {
         console.log(err);
-        if (uri != 'nogame.love') {
-          uri = 'nogame.love';
+        if (uri != './loves/nogame.love') {
+          uri = './loves/nogame.love';
           arg = null;
           Player.runLove();
         }
