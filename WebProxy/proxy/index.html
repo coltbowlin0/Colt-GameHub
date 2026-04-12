@@ -1,15 +1,6 @@
 <!doctype html>
 <html>
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-EQ4HJWL0BX"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-
-        gtag('config', 'G-EQ4HJWL0BX');
-    </script>
     <meta name="description" content="Go to any site even its blocked.">
     <meta charset="UTF-8">
     <meta name="description" content="Your journey to new skills starts here. Explore courses, tutorials, and resources for lifelong learners.">
@@ -452,14 +443,16 @@
         var scramjetData = window.$scramjetLoadController();
         var scramjet = new scramjetData.ScramjetController({
             files: {
-                wasm: '/scram/scramjet.wasm.wasm',
-                all: '/scram/scramjet.all.js',
-                sync: '/scram/scramjet.sync.js'
+                wasm: '../scram/scramjet.wasm.wasm',
+                all: '../scram/scramjet.all.js',
+                sync: '../scram/scramjet.sync.js'
             }
         });
         scramjet.init();
 
-        var connection = new BareMux.BareMuxConnection('/baremux/worker.js');
+       // This creates a perfect, full URL regardless of where you host it
+        const baremuxPath = new URL('../baremux/index.js', location.href).href;
+        const connection = new BareMux.BareMuxConnection(baremuxPath);
 
         function showLoading() {
             loadingOverlay.classList.add('active');
@@ -476,7 +469,12 @@
                 }
                 throw new Error('Your browser doesn\'t support service workers.');
             }
-            await navigator.serviceWorker.register('/proxy-sw.js', { scope: '/scramjet/' });
+
+            // Setting scope to './' makes the scope the folder where proxy-sw.js is located.
+            // This satisfies the browser's security requirement.
+            await navigator.serviceWorker.register('./proxy-sw.js', { 
+                scope: './' 
+            });
         }
 
         function toUrl(text) {
@@ -695,7 +693,7 @@
 </script>
 <script src="../js/settings.js"></script>
 <script src="../js/panicbtn.js"></script>
-<script src="../socket.io/socket.io.js"></script>
+<script src="./socket.io/socket.io.js"></script>
 <script src="../js/socket-global.js"></script>
 </body>
 </html>
