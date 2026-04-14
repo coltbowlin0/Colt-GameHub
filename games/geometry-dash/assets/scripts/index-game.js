@@ -1,15 +1,15 @@
 // editable config stuff 
 
 if (window.mainColor == null) {
-  window.mainColor = parseInt("fb2651", 16);
+  window.mainColor = parseInt(localStorage.getItem("iconMainColor") || "04FF00", 16);
 }
 if (window.secondaryColor == null) {
-  window.secondaryColor = parseInt("ffffff", 16);
+  window.secondaryColor = parseInt(localStorage.getItem("iconSecondaryColor") || "00FBFF", 16);
 }
-window.currentPlayer = "player_42";
-window.currentShip = "ship_44";
-window.currentBall = "player_ball_23"
-window.currentWave = "dart_01"
+window.currentPlayer = localStorage.getItem("iconCurrentPlayer") || "player_01";
+window.currentShip   = localStorage.getItem("iconCurrentShip")   || "ship_01";
+window.currentBall   = localStorage.getItem("iconCurrentBall")   || "player_ball_01";
+window.currentWave   = localStorage.getItem("iconCurrentWave")   || "dart_01";
 window.currentlevel = [
 	"stereo_madness", // internal level name
 	"Stereo Madness", // proper level name
@@ -18,6 +18,10 @@ window.currentlevel = [
 ];
 window.showHitboxes = false;
 window.noClip = false; // experimental
+window.orbClickScale = 2.0;
+window.orbClickShrinkTime = 250;
+window.orbParticleSize = 3.5;
+window.showPercentage = true;
 
 // -------------------------------
 
@@ -29,14 +33,14 @@ function hexadecimalToHex(num) {
   return num.toString(16).padStart(6, '0');
 }
 
-let r = Math.round(10240 / 9);
-const n = 640;
+let screenWidth = 1138;
+const screenHeight = 640;
 const a = 60;
 const o = 180;
-let h = r / 2 - 150;
-function l(_0x2b5712) {
-  r = _0x2b5712;
-  h = _0x2b5712 / 2 - 150;
+let centerX = screenWidth / 2 - 150;
+function l(screenWidth) {
+  this.screenWidth = screenWidth;
+  centerX = screenWidth / 2 - 150;
 }
 const u = 1 / 240;
 const c = 11.540004;
@@ -274,6 +278,12 @@ preload() {
     this.load.text("level_5703070", "assets/levels/5703070.txt");
     this.load.audio("the_nightmare", "assets/music/Polargeist.mp3");
  
+    this.load.text("level_137677336", "assets/levels/137677336.txt");
+    this.load.audio("disco_dinosaur", "assets/music/DiscoDinosaur.mp3");
+ 
+    this.load.text("level_116489424", "assets/levels/116489424.txt");
+    this.load.audio("the_dark_star", "assets/music/TheDarkStar.mp3");
+ 
     this.load.audio("explode_11", "assets/sfx/explode_11.ogg");
     this.load.audio("endStart_02", "assets/sfx/endStart_02.ogg");
     this.load.audio("playSound_01", "assets/sfx/playSound_01.ogg");
@@ -398,8 +408,12 @@ class PlayerState {
     this.onCeiling = false;
     this.upKeyDown = false;
     this.upKeyPressed = false;
+    this.queuedHold = false;
     this.isDead = false;
     this.mirrored = false;
+    this.isDashing = false;
+    this.dashYVelocity = 0;
+    this.isMini = false;
   }
 }
 const P = ["GJ_WebSheet", "GJ_GameSheet", "GJ_GameSheet02", "GJ_GameSheet03", "GJ_GameSheet04", "GJ_GameSheetEditor", "GJ_GameSheetGlow", "GJ_GameSheetIcons", "GJ_LaunchSheet", "player_ball_00", "player_dart_00"];
@@ -501,6 +515,66 @@ function parseLevel(levelString) {
     objects: objects
   };
 }
+// from https://github.com/opstic/gdclone/blob/main/src/level/easing.rs
+class Easing {
+  static sample(type, rate, x) {
+    if (x === 0 || x === 1) return x;
+    switch (type) {
+      case 0: return x;
+      case 1: return this._easeInOut(x, rate);
+      case 2: return this._easeIn(x, rate);
+      case 3: return this._easeOut(x, rate);
+      case 4: return this._elasticInOut(x, rate);
+      case 5: return this._elasticIn(x, rate);
+      case 6: return this._elasticOut(x, rate);
+      case 7: return this._bounceInOut(x);
+      case 8: return this._bounceIn(x);
+      case 9: return this._bounceOut(x);
+      case 10: return this._expInOut(x);
+      case 11: return this._expIn(x);
+      case 12: return this._expOut(x);
+      case 13: return this._sineInOut(x);
+      case 14: return this._sineIn(x);
+      case 15: return this._sineOut(x);
+      case 16: return this._backInOut(x);
+      case 17: return this._backIn(x);
+      case 18: return this._backOut(x);
+      default: return x;
+    }
+  };
+  static _easeInOut(x, r) { const t=x*2; return t<1 ? 0.5*Math.pow(t,r) : 1-0.5*Math.pow(2-t,r); };
+  static _easeIn(x, r) { return Math.pow(x, r); };
+  static _easeOut(x, r) { return Math.pow(x, 1/r); };
+  static _elasticInOut(x, p) {
+    let period = p||0.3*1.5; const s=period/4; const t=x-1;
+    return t<0 ? -0.5*Math.pow(2,10*t)*Math.sin((t-s)*(2*Math.PI)/period)
+               : Math.pow(2,-10*t)*Math.sin((t-s)*(2*Math.PI)/period)*0.5+1;
+  };
+  static _elasticIn(x, p) { const s=p/4; const t=x-1; return -Math.pow(2,10*t)*Math.sin((t-s)*(2*Math.PI)/p); };
+  static _elasticOut(x, p) { const s=p/4; return Math.pow(2,-10*x)*Math.sin((x-s)*(2*Math.PI)/p)+1; };
+  static _bounceTime(x) {
+    if (x<1/2.75)          return 7.5625*x*x;
+    else if (x<2/2.75)   { const t=x-1.5/2.75;  return 7.5625*t*t+0.75; }
+    else if (x<2.5/2.75) { const t=x-2.25/2.75; return 7.5625*t*t+0.9375; }
+    else                 { const t=x-2.625/2.75; return 7.5625*t*t+0.984375; }
+  };
+  static _bounceInOut(x) { return x<0.5 ? (1-this._bounceTime(1-x*2))*0.5 : this._bounceTime(x*2-1)*0.5+0.5; };
+  static _bounceIn(x) { return 1-this._bounceTime(1-x); };
+  static _bounceOut(x) { return this._bounceTime(x); };
+  static _expInOut(x) { return x<0.5 ? 0.5*Math.pow(2,10*(x*2-1)) : 0.5*(-Math.pow(2,-10*(x*2-1))+2); };
+  static _expIn(x) { return Math.pow(2,10*(x-1))-0.001; };
+  static _expOut(x) { return -Math.pow(2,-10*x)+1; };
+  static _sineInOut(x) { return -0.5*(Math.cos(x*Math.PI)-1); };
+  static _sineIn(x) { return 1-Math.cos((x*Math.PI)/2); };
+  static _sineOut(x) { return Math.sin((x*Math.PI)/2); };
+  static _backInOut(x) {
+    const ov=1.70158*1.525; const t=x*2;
+    return t<1 ? (t*t*((ov+1)*t-ov))/2 : ((t-2)*(t-2)*((ov+1)*(t-2)+ov))/2+1;
+  };
+  static _backIn(x) { const ov=1.70158; return x*x*((ov+1)*x-ov); };
+  static _backOut(x) { const ov=1.70158; const t=x-1; return t*t*((ov+1)*t+ov)+1; };
+};
+
 const solidType = "solid";
 const hazardType = "hazard";
 const decoType = "deco";
@@ -514,7 +588,7 @@ const flyPortal = "fly";
 const cubePortal = "cube";
 const portalWaveType = "portal_wave";
 const allObjects = window.allobjects();
-const objsWithGlow = [1, 2, 3, 4, 6, 7, 83, 8, 39, 103, 392, 35, 36, 40, 140, 141, 62, 65, 66, 68, 195, 196];
+const objsWithGlow = [1, 2, 3, 4, 6, 7, 83, 8, 39, 103, 392, 35, 36, 40, 140, 141, 62, 65, 66, 68, 195, 196, 1022, 1594];
 for (let obj of objsWithGlow) {
   if (allObjects[obj]) {
     allObjects[obj].glow = true;
@@ -551,10 +625,18 @@ class us {
     this._colorTriggerIdx = 0;
     this._audioScaleSprites = [];
     this._orbSprites = [];
+    this._coinSprites = [];
+    this._sawSprites = [];
     this._enterEffectTriggers = [];
     this._enterEffectTriggerIdx = 0;
     this._activeEnterEffect = 0;
     this._activeExitEffect = 0;
+    this._moveTriggers = [];
+    this._moveTriggerIdx = 0;
+    this._activeMoveTweens = [];
+    this._groupSprites = {};
+    this._groupOffsets = {};
+    this._groupColliders = {};
     this._sections = [];
     this._sectionContainers = [];
     this._collisionSections = [];
@@ -644,9 +726,9 @@ class us {
     this._tileW = _0x3bff90 ? _0x3bff90.width : 1012;
     this._groundTiles = [];
     this._ceilingTiles = [];
-    let _0x5bf5f8 = Math.ceil(r / this._tileW) + 2;
+    let _0x5bf5f8 = Math.ceil(screenWidth / this._tileW) + 2;
     let _0x428d85 = b(0);
-    const _0x239f13 = -h;
+    const _0x239f13 = -centerX;
     for (let _0x3a0baf = 0; _0x3a0baf < _0x5bf5f8; _0x3a0baf++) {
       let _0x4cea14 = _0x239f13 + _0x3a0baf * this._tileW;
       let _0x929a9b = _0x73ae12.add.image(0, _0x428d85, "groundSquare_" + window._groundId + "_001.png");
@@ -667,21 +749,21 @@ class us {
     this._maxGroundWorldX = _0x239f13 + (_0x5bf5f8 - 1) * this._tileW;
     const _0x42704c = _0x73ae12.textures.getFrame("GJ_WebSheet", "floorLine_01_001.png");
     const _0x37a2ff = _0x42704c ? _0x42704c.width : 888;
-    const _0x578262 = r / _0x37a2ff;
-    this._groundLine = _0x73ae12.add.image(r / 2, _0x428d85 - 1, "GJ_WebSheet", "floorLine_01_001.png").setOrigin(0.5, 0).setScale(_0x578262, 1).setBlendMode(S).setDepth(21).setScrollFactor(0);
-    this._ceilingLine = _0x73ae12.add.image(r / 2, _0x428d85 + 1, "GJ_WebSheet", "floorLine_01_001.png").setOrigin(0.5, 1).setScale(_0x578262, 1).setFlipY(true).setBlendMode(S).setDepth(21).setScrollFactor(0).setVisible(false);
+    const _0x578262 = screenWidth / _0x37a2ff;
+    this._groundLine = _0x73ae12.add.image(screenWidth / 2, _0x428d85 - 1, "GJ_WebSheet", "floorLine_01_001.png").setOrigin(0.5, 0).setScale(_0x578262, 1).setBlendMode(S).setDepth(21).setScrollFactor(0);
+    this._ceilingLine = _0x73ae12.add.image(screenWidth / 2, _0x428d85 + 1, "GJ_WebSheet", "floorLine_01_001.png").setOrigin(0.5, 1).setScale(_0x578262, 1).setFlipY(true).setBlendMode(S).setDepth(21).setScrollFactor(0).setVisible(false);
     const _0x4ff823 = 100 / 255;
     this._groundShadowL = _0x73ae12.add.image(-1, _0x428d85, "GJ_WebSheet", "groundSquareShadow_001.png").setOrigin(0, 0).setScrollFactor(0).setDepth(22).setAlpha(_0x4ff823).setScale(0.7, 1).setBlendMode(E);
-    this._groundShadowR = _0x73ae12.add.image(r + 1, _0x428d85, "GJ_WebSheet", "groundSquareShadow_001.png").setOrigin(1, 0).setScrollFactor(0).setDepth(22).setAlpha(_0x4ff823).setScale(0.7, 1).setFlipX(true).setBlendMode(E);
+    this._groundShadowR = _0x73ae12.add.image(screenWidth + 1, _0x428d85, "GJ_WebSheet", "groundSquareShadow_001.png").setOrigin(1, 0).setScrollFactor(0).setDepth(22).setAlpha(_0x4ff823).setScale(0.7, 1).setFlipX(true).setBlendMode(E);
     this._ceilingShadowL = _0x73ae12.add.image(-1, _0x428d85, "GJ_WebSheet", "groundSquareShadow_001.png").setOrigin(0, 1).setScrollFactor(0).setDepth(22).setAlpha(_0x4ff823).setScale(0.7, 1).setFlipY(true).setBlendMode(E).setVisible(false);
-    this._ceilingShadowR = _0x73ae12.add.image(r + 1, _0x428d85, "GJ_WebSheet", "groundSquareShadow_001.png").setOrigin(1, 1).setScrollFactor(0).setDepth(22).setAlpha(_0x4ff823).setScale(0.7, 1).setFlipX(true).setFlipY(true).setBlendMode(E).setVisible(false);
+    this._ceilingShadowR = _0x73ae12.add.image(screenWidth + 1, _0x428d85, "GJ_WebSheet", "groundSquareShadow_001.png").setOrigin(1, 1).setScrollFactor(0).setDepth(22).setAlpha(_0x4ff823).setScale(0.7, 1).setFlipX(true).setFlipY(true).setBlendMode(E).setVisible(false);
   }
   resizeScreen() {
     var _0xdc60af;
     var _0x493047;
     const _0x1f0ac2 = this._scene;
     const _0x495be2 = this._tileW;
-    const _0x546bad = Math.ceil(r / _0x495be2) + 2;
+    const _0x546bad = Math.ceil(screenWidth / _0x495be2) + 2;
     const _0x4f87d5 = b(0);
     while (this._groundTiles.length < _0x546bad) {
       const _0x596be1 = this._maxGroundWorldX + _0x495be2;
@@ -697,13 +779,13 @@ class us {
       this._maxGroundWorldX = _0x596be1;
     }
     const _0x51125e = this._scene.textures.getFrame("GJ_WebSheet", "floorLine_01_001.png");
-    const _0x1c38c3 = r / (_0x51125e ? _0x51125e.width : 888);
-    this._groundLine.x = r / 2;
+    const _0x1c38c3 = screenWidth / (_0x51125e ? _0x51125e.width : 888);
+    this._groundLine.x = screenWidth / 2;
     this._groundLine.setScale(_0x1c38c3, 1);
-    this._ceilingLine.x = r / 2;
+    this._ceilingLine.x = screenWidth / 2;
     this._ceilingLine.setScale(_0x1c38c3, 1);
-    this._groundShadowR.x = r + 1;
-    this._ceilingShadowR.x = r + 1;
+    this._groundShadowR.x = screenWidth + 1;
+    this._ceilingShadowR.x = screenWidth + 1;
   }
   updateGroundTiles(_0x14aed2 = 0) {
     const _0x3d0974 = this._cameraXRef.value;
@@ -1008,6 +1090,20 @@ class us {
             effect: _0x24471f.enterEffect
           });
         }
+        if (_0x1b937f.id === 901) {
+          const _raw = _0x1b937f._raw;
+          this._moveTriggers.push({
+            x: _0x1b937f.x * 2,
+            duration: parseFloat(_raw[10] ?? 0),
+            easingType: parseInt(_raw[30] ?? 0, 10),
+            easingRate: parseFloat(_raw[85] ?? 2),
+            targetGroup: parseInt(_raw[51] ?? 0, 10),
+            offsetX: parseFloat(_raw[28] ?? 0) * 2,
+            offsetY: parseFloat(_raw[29] ?? 0) * 2,
+            lockX: _raw[58] === '1',
+            lockY: _raw[59] === '1',
+          });
+        }
         continue;
       }
       let _0x173c58 = _0x1b937f.x * 2;
@@ -1049,6 +1145,16 @@ class us {
           _0x554e0e._eeWorldX = _0x173c58;
           _0x554e0e._eeBaseY = _0x1b10a0;
           this._addToSection(_0x554e0e);
+          if (_0x1b937f.groups) {
+            const _gids = _0x1b937f.groups.split('.').map(Number).filter(n => n > 0);
+            _0x554e0e._eeGroups = _gids;
+            _0x554e0e._origWorldX = _0x554e0e._eeWorldX;
+            _0x554e0e._origBaseY = _0x554e0e._eeBaseY;
+            for (const _gid of _gids) {
+              if (!this._groupSprites[_gid]) this._groupSprites[_gid] = [];
+              this._groupSprites[_gid].push(_0x554e0e);
+            }
+          }
           if (_0x24471f && _0x24471f.animFrames) {
             _0x554e0e._animFrames = _0x24471f.animFrames;
             _0x554e0e._animInterval = _0x24471f.animInterval || 100;
@@ -1057,13 +1163,36 @@ class us {
             window._animatedSprites.push(_0x554e0e);
           }
           if (_0x24471f && _0x24471f.type === ringType) {
-            _0x554e0e.setScale(0.1);
+            _0x554e0e.setScale(0.75);
             _0x554e0e._eeAudioScale = true;
             this._orbSprites.push(_0x554e0e);
             if (_0xOrbGlow) {
-              _0xOrbGlow.setScale(0.1);
+              _0xOrbGlow.setScale(0.75);
               _0xOrbGlow._eeAudioScale = true;
               this._orbSprites.push(_0xOrbGlow);
+            }
+          }
+          if (_0x24471f && _0x24471f.type === coinType) {
+            _0x554e0e._coinWorldX = _0x173c58;
+            _0x554e0e._coinWorldY = _0x7ab528;
+            _0x554e0e._coinBaseScale = _0x554e0e.scaleX || 1;
+            this._coinSprites.push(_0x554e0e);
+          }
+          if (_0x4c7589 && _0x4c7589.indexOf("sawblade") >= 0) {
+            _0x554e0e.setTint(0x000000);
+            _0x554e0e._isSaw = true;
+            this._sawSprites.push(_0x554e0e);
+            let _sawMirror = L(_0xd15974, _0x2ddc05, _0x1b10a0, _0x4c7589);
+            if (_sawMirror) {
+              this._applyVisualProps(_0xd15974, _sawMirror, _0x4c7589, _0x1b937f, _0x24471f);
+              _sawMirror.setTint(0x000000);
+              _sawMirror.rotation = _0x554e0e.rotation + Math.PI;
+              _sawMirror._isSaw = true;
+              _sawMirror._eeWorldX = _0x173c58;
+              _sawMirror._eeBaseY = _0x1b10a0;
+              this._addToSection(_sawMirror);
+              this._addVisualSprite(_sawMirror);
+              this._sawSprites.push(_sawMirror);
             }
           }
         } else {
@@ -1115,6 +1244,22 @@ class us {
               _0x42173e._eeWorldX = _0x173c58 + _0x3b4e8c;
               _0x42173e._eeBaseY = _0x1b10a0 + _0x172131;
               this._addToSection(_0x42173e);
+              if (_0x4c7589 && _0x4c7589.indexOf("sawblade") >= 0) {
+                _0x42173e.setTint(0x000000);
+                _0x42173e._isSaw = true;
+                this._sawSprites.push(_0x42173e);
+                let _childMirror = L(_0xd15974, _0x2ddc05 + _0x3b4e8c, _0x1b10a0 + _0x172131, _0x2ca803.frame);
+                if (_childMirror) {
+                  this._applyVisualProps(_0xd15974, _childMirror, _0x2ca803.frame, _0x1b937f, _0x2ca803);
+                  _childMirror.setTint(0x000000);
+                  _childMirror.rotation = _0x42173e.rotation + Math.PI;
+                  _childMirror._isSaw = true;
+                  _childMirror._eeWorldX = _0x173c58 + _0x3b4e8c;
+                  _childMirror._eeBaseY = _0x1b10a0 + _0x172131;
+                  this._addToSection(_childMirror);
+                  this._sawSprites.push(_childMirror);
+                }
+              }
             }
           }
         }
@@ -1128,12 +1273,15 @@ class us {
         const _0x143187 = 2;
         let _0x5926ad = _0x3a9438 - _0x143187 * 5;
         let _0x1ebc69 = _0x2e9079;
+        const _portalRot = (_0x1b937f.rot || 0) * Math.PI / 180;
         const _0x388526 = {
           getRandomPoint: _0x4ad804 => {
             let _0x5b7fb4 = (Math.random() * 190 + 85) * Math.PI / 180;
             let _0x2bc56f = _0x143187 * 20 + Math.random() * 40 * _0x143187;
-            _0x4ad804.x = Math.cos(_0x5b7fb4) * _0x2bc56f;
-            _0x4ad804.y = Math.sin(_0x5b7fb4) * _0x2bc56f;
+            let _rx = Math.cos(_0x5b7fb4) * _0x2bc56f;
+            let _ry = Math.sin(_0x5b7fb4) * _0x2bc56f;
+            _0x4ad804.x = _rx * Math.cos(_portalRot) - _ry * Math.sin(_portalRot);
+            _0x4ad804.y = _rx * Math.sin(_portalRot) + _ry * Math.cos(_portalRot);
             return _0x4ad804;
           }
         };
@@ -1179,11 +1327,26 @@ class us {
         this._addToSection(_0x1bed6b);
       }
       if (_0x24471f) {
+        const _registerCollider = (col) => {
+          col._baseX = col.x;
+          col._baseY = col.y;
+          col._origBaseX = col.x;
+          col._origBaseY = col.y;
+          if (_0x1b937f.groups) {
+            const _cgids = _0x1b937f.groups.split('.').map(Number).filter(n => n > 0);
+            col._eeGroups = _cgids;
+            for (const _cgid of _cgids) {
+              if (!this._groupColliders[_cgid]) this._groupColliders[_cgid] = [];
+              this._groupColliders[_cgid].push(col);
+            }
+          }
+        };
         if (_0x24471f.type === solidType && _0x24471f.gridW > 0 && _0x24471f.gridH > 0) {
           let _0x10e5ae = _0x24471f.gridW * a;
           let _0x11e08d = _0x24471f.gridH * a;
           let _0x4628ff = new Collider(solidType, _0x173c58, _0x7ab528, _0x10e5ae, _0x11e08d, _0x1b937f.rot || 0);
           _0x4628ff.objid = _0x1b937f.id;
+          _registerCollider(_0x4628ff);
           this.objects.push(_0x4628ff);
           this._addCollisionToSection(_0x4628ff);
         } else if (_0x24471f.type === hazardType) {
@@ -1198,12 +1361,13 @@ class us {
           }
           if (_0x3f8c4f > 0 && _0x2a123d > 0) {
             let _0x3c84ad = new Collider(hazardType, _0x173c58, _0x7ab528, _0x3f8c4f, _0x2a123d, _0x1b937f.rot || 0);
+            _registerCollider(_0x3c84ad);
             this.objects.push(_0x3c84ad);
             this._addCollisionToSection(_0x3c84ad);
           }
         } else if (_0x24471f.type === portalType) {
 
-          let _0xad0974 = 90;
+          let _0xad0974 = _0x24471f.gridW * a;
           let _0x2c2226 = _0x24471f.gridH * a;
           const _0x5bcd81 = _0x24471f.sub || {
             10: "gravity_flip",
@@ -1225,7 +1389,9 @@ class us {
             ball: "portal_ball",
             wave: portalWaveType,
             mirrora: "portal_mirror_on",
-            mirrorb: "portal_mirror_off"
+            mirrorb: "portal_mirror_off",
+            shrink: "portal_mini_on",
+            grow: "portal_mini_off"
           }[_0x5bcd81] || null;
           if (!_0x25452a) {
             console.warn("unknown portal sub-type: id=" + _0x1b937f.id + " sub=" + _0x24471f.sub);
@@ -1233,6 +1399,7 @@ class us {
           if (_0x25452a) {
             let _0x4bd7bc = new Collider(_0x25452a, _0x173c58, _0x7ab528, _0xad0974, _0x2c2226, _0x1b937f.rot || 0);
             _0x4bd7bc.portalY = _0x7ab528;
+            _registerCollider(_0x4bd7bc);
             this.objects.push(_0x4bd7bc);
             this._addCollisionToSection(_0x4bd7bc);
             console.log("portal collision created: type=" + _0x25452a + " id=" + _0x1b937f.id + " x=" + _0x173c58 + " y=" + _0x7ab528 + " w=" + _0xad0974 + " h=" + _0x2c2226);
@@ -1241,22 +1408,32 @@ class us {
           }
         } else if (_0x24471f.type === padType) {
           let padW = _0x24471f.gridW * a;
-          let padH = Math.max(_0x24471f.gridH, 10);
+          let padH = _0x24471f.gridH * a;
           let padObj = new Collider(jumpPadType, _0x173c58, _0x7ab528, padW, padH, _0x1b937f.rot || 0);
           padObj.padId = _0x1b937f.id;
+          _registerCollider(padObj);
           this.objects.push(padObj);
           this._addCollisionToSection(padObj);
           console.log("pad collision created: id=" + _0x1b937f.id + " x=" + _0x173c58 + " y=" + _0x7ab528);
         } else if (_0x24471f.type === ringType) {
-          let orbW = _0x24471f.gridW * a * 0.8;
-          let orbH = _0x24471f.gridH * a * 0.8;
+          let orbW = _0x24471f.gridW * a;
+          let orbH = _0x24471f.gridH * a;
           let orbObj = new Collider(jumpRingType, _0x173c58, _0x7ab528, orbW, orbH, _0x1b937f.rot || 0);
           orbObj.orbId = _0x1b937f.id;
           orbObj.orbRotation = _0x1b937f.rot || 0;
           orbObj._dashHoldTicks = 0;
+          _registerCollider(orbObj);
           this.objects.push(orbObj);
           this._addCollisionToSection(orbObj);
           console.log("orb collision created: id=" + _0x1b937f.id + " x=" + _0x173c58 + " y=" + _0x7ab528);
+        } else if (_0x24471f.type === coinType) {
+          let coinW = (_0x24471f.gridW || 1) * a;
+          let coinH = (_0x24471f.gridH || 1) * a;
+          let coinObj = new Collider(coinType, _0x173c58, _0x7ab528, coinW, coinH, _0x1b937f.rot || 0);
+          coinObj.coinId = _0x1b937f.id;
+          _registerCollider(coinObj);
+          this.objects.push(coinObj);
+          this._addCollisionToSection(coinObj);
         }
       }
     }
@@ -1271,7 +1448,8 @@ class us {
     console.log("colision objects by type:", JSON.stringify(colTypeCounts));
     this._colorTriggers.sort((_0x359c7f, _0x28dd8b) => _0x359c7f.x - _0x28dd8b.x);
     this._enterEffectTriggers.sort((_0x3e43f2, _0x5e3d9a) => _0x3e43f2.x - _0x5e3d9a.x);
-    this.endXPos = Math.max(r + 1200, this._lastObjectX + 680);
+    this._moveTriggers.sort((a, b) => a.x - b.x);
+    this.endXPos = Math.max(screenWidth + 1200, this._lastObjectX + 680);
   }
   createEndPortal(_0x41fbdb) {
     var _0x400605;
@@ -1412,8 +1590,8 @@ class us {
     if (_0x1dce22 < 0) {
       return;
     }
-    const _0x5b29dd = Math.max(0, Math.floor((_0xa5f1e1 - 140) / 400));
-    const _0x3b33db = Math.min(_0x1dce22, Math.floor((_0xa5f1e1 + r + 140) / 400));
+    const _0x5b29dd = Math.max(0, Math.floor((_0xa5f1e1 - 200) / 400));
+    const _0x3b33db = Math.min(_0x1dce22, Math.floor((_0xa5f1e1 + screenWidth + 200) / 400));
     const _0x1800fc = this._visMinSec;
     const _0xc31046 = this._visMaxSec;
     if (_0x1800fc < 0) {
@@ -1476,6 +1654,98 @@ class us {
       this._enterEffectTriggerIdx++;
     }
   }
+  checkMoveTriggers(playerX) {
+    while (this._moveTriggerIdx < this._moveTriggers.length) {
+      const trig = this._moveTriggers[this._moveTriggerIdx];
+      if (trig.x > playerX) break;
+      this._activeMoveTweens.push({
+        trig,
+        elapsed: 0,
+        prevProgress: 0,
+      });
+      if (!this._groupOffsets[trig.targetGroup]) {
+        this._groupOffsets[trig.targetGroup] = { x: 0, y: 0 };
+      }
+      this._moveTriggerIdx++;
+    }
+  }
+
+  stepMoveTriggers(dt) {
+    let i = 0;
+    while (i < this._activeMoveTweens.length) {
+      const anim = this._activeMoveTweens[i];
+      const { trig } = anim;
+      const dur = trig.duration > 0 ? trig.duration : 0;
+
+      anim.elapsed += dt;
+      const progress = dur > 0 ? Math.min(anim.elapsed / dur, 1) : 1;
+      const prevProgress = anim.prevProgress;
+
+      const curSample = Easing.sample(trig.easingType, trig.easingRate, progress);
+      const prevSample = Easing.sample(trig.easingType, trig.easingRate, prevProgress);
+      const amount = curSample - prevSample;
+
+      anim.prevProgress = progress;
+
+      const deltaX = trig.offsetX * amount;
+      const deltaY = -(trig.offsetY * amount);
+
+      const sprites = this._groupSprites[trig.targetGroup];
+      const colliders = this._groupColliders[trig.targetGroup];
+      if (sprites || colliders) {
+        const off = this._groupOffsets[trig.targetGroup];
+        off.x += deltaX;
+        off.y += deltaY;
+        if (sprites) {
+          for (const spr of sprites) {
+            if (!spr || !spr.active) continue;
+            spr.x = spr._origWorldX + off.x;
+            spr.y = spr._origBaseY + off.y;
+            spr._eeWorldX = spr.x;
+            spr._eeBaseY  = spr.y;
+          }
+        }
+        if (colliders) {
+          for (const col of colliders) {
+            col.x = col._origBaseX + off.x;
+            col.y = col._origBaseY - off.y;
+            col._baseX = col.x;
+            col._baseY = col.y;
+          }
+        }
+      }
+
+      if (progress >= 1) {
+        this._activeMoveTweens.splice(i, 1);
+      } else {
+        i++;
+      }
+    }
+  }
+
+  resetMoveTriggers() {
+    this._moveTriggerIdx = 0;
+    this._activeMoveTweens = [];
+    this._groupOffsets = {};
+    for (const gid in this._groupSprites) {
+      for (const spr of this._groupSprites[gid]) {
+        if (!spr || !spr.active) continue;
+        spr.x = spr._origWorldX;
+        spr.y = spr._origBaseY;
+        spr._eeWorldX = spr._origWorldX;
+        spr._eeBaseY = spr._origBaseY;
+      }
+    }
+    for (const gid in this._groupColliders) {
+      for (const col of this._groupColliders[gid]) {
+        col.x = col._origBaseX;
+        col.y = col._origBaseY;
+        col._baseX = col._origBaseX;
+        col._baseY = col._origBaseY;
+      }
+    }
+  }
+
   resetEnterEffectTriggers() {
     this._enterEffectTriggerIdx = 0;
     this._activeEnterEffect = 0;
@@ -1503,8 +1773,8 @@ class us {
     const _0xa24372 = 140;
     const _0x5e9f2a = 200;
     const _0x29a51b = _0x2f36ed;
-    const _0x548004 = _0x2f36ed + r;
-    const _0x49c6d8 = _0x2f36ed + r / 2;
+    const _0x548004 = _0x2f36ed + screenWidth;
+    const _0x49c6d8 = _0x2f36ed + screenWidth / 2;
     const _0x2d8f53 = Math.max(0, Math.floor((_0x29a51b - _0xa24372) / _0x221c93));
     const _0x2b19db = Math.min(this._sections.length - 1, Math.floor((_0x548004 + _0xa24372) / _0x221c93));
     for (let _0x1bd44f = _0x2d8f53; _0x1bd44f <= _0x2b19db; _0x1bd44f++) {
@@ -1603,8 +1873,27 @@ class us {
     for (let _0x24afdb of this._audioScaleSprites) {
       _0x24afdb.setScale(_0x337bf7);
     }
+    const _now = Date.now();
+    const _clickMult = window.orbClickScale || 2.0;
+    const _shrinkMs = window.orbClickShrinkTime || 250;
     for (let _0xOrbSpr of this._orbSprites) {
-      _0xOrbSpr.setScale(_0x337bf7);
+      const _baseScale = 0.75 + _0x337bf7 * 0.15;
+      if (_0xOrbSpr._hitTime) {
+        const _elapsed = _now - _0xOrbSpr._hitTime;
+        if (_elapsed < 80) {
+          const _t = _elapsed / 80;
+          _0xOrbSpr.setScale(_baseScale + (_baseScale * (_clickMult - 1)) * _t);
+        } else if (_elapsed < 80 + _shrinkMs) {
+          const _t = (_elapsed - 80) / _shrinkMs;
+          const _peak = _baseScale * _clickMult;
+          _0xOrbSpr.setScale(_peak + (_baseScale - _peak) * _t);
+        } else {
+          _0xOrbSpr._hitTime = null;
+          _0xOrbSpr.setScale(_baseScale);
+        }
+      } else {
+        _0xOrbSpr.setScale(_baseScale);
+      }
     }
   }
   resetVisibility() {
@@ -1617,6 +1906,16 @@ class us {
     }
     for (let _0x5c5d9a of this._audioScaleSprites) {
       _0x5c5d9a.setScale(0.1);
+    }
+    for (let _cs of this._coinSprites) {
+      if (_cs) {
+        _cs.setVisible(true);
+        _cs.setAlpha(1);
+        _cs.setScale(_cs._coinBaseScale || 1);
+        if (_cs._coinWorldY !== undefined) {
+          _cs.y = b(_cs._coinWorldY);
+        }
+      }
     }
   }
 }
@@ -1741,7 +2040,7 @@ class ps {
     this.rotateActionDuration = 0;
     this.rotateActionStart = 0;
     this.rotateActionTotal = 0;
-    this._showHitboxes = true;
+    this._showHitboxes = !!window.showHitboxes;
     this._lastLandObject = null;
     this._lastXOffset = 0;
     this._lastCameraX = 0;
@@ -1754,7 +2053,7 @@ class ps {
   _createSprites() {
     const _0x1872a7 = this._scene;
     const _0x28689a = b(this.p.y);
-    const _0xf42f36 = h;
+    const _0xf42f36 = centerX;
     this._playerGlowLayer = ds(_0x1872a7, _0xf42f36, _0x28689a, `${window.currentPlayer}_glow_001.png`, 9, false);
     this._playerSpriteLayer = ds(_0x1872a7, _0xf42f36, _0x28689a, `${window.currentPlayer}_001.png`, 10, true);
     this._playerOverlayLayer = ds(_0x1872a7, _0xf42f36, _0x28689a, `${window.currentPlayer}_2_001.png`, 8, true);
@@ -2014,8 +2313,8 @@ class ps {
     });
     this._aboveContainer = scene.add.container(0, 0);
     this._aboveContainer.setDepth(13);
-    this._aboveContainer.add(this._landEmitter1);
-    this._aboveContainer.add(this._landEmitter2);
+    this._gameLayer.topContainer.add(this._landEmitter1);
+    this._gameLayer.topContainer.add(this._landEmitter2);
     this._landIdx = false;
     this._streak = new cs(this._scene, "streak_01", 0.231, 10, 8, 100, window.secondaryColor, 0.7);
     this._streak.addToContainer(this._gameLayer.container, 8);
@@ -2026,9 +2325,8 @@ class ps {
     }
     const _0x119eb7 = this._scene._playerWorldX;
     const _0x519d38 = b(this.p.y);
-    const _mirrorMod = this.p.mirrored ? -1 : 1;
-this._particleEmitter.particleX = _0x119eb7 - 20 * _mirrorMod;
-this._particleEmitter.particleY = _0x519d38 + (this.p.gravityFlipped ? -26 : 26);
+    this._particleEmitter.particleX = _0x119eb7 - 20;
+    this._particleEmitter.particleY = _0x519d38 + (this.p.gravityFlipped ? -26 : 26);
     const _0x4436ac = this.p.onGround && !this.p.isFlying && !this.p.isWave;
     if (_0x4436ac && !this._particleActive) {
       this._particleEmitter.start();
@@ -2040,8 +2338,8 @@ this._particleEmitter.particleY = _0x519d38 + (this.p.gravityFlipped ? -26 : 26)
     {
       const _0xe76a85 = Math.cos(this._rotation);
       const _0x26ec65 = Math.sin(this._rotation);
-      const _0x216018 = this.p.isWave ? 0 : -24 * _mirrorMod;
-      const _0x2baeac = this.p.isWave ? 16 : 18;
+      const _0x216018 = this.p.isWave ? 0 : -24;
+      const _0x2baeac = this.p.isWave ? 4 : 18;
       const _0x75c380 = _0x119eb7 + _0x216018 * _0xe76a85 - _0x2baeac * _0x26ec65;
       const _0x2b31d7 = _0x519d38 + _0x216018 * _0x26ec65 + _0x2baeac * _0xe76a85;
       const _0x5d66f4 = (Math.random() * 2 - 1) * 2 * 2;
@@ -2068,8 +2366,17 @@ this._particleEmitter.particleY = _0x519d38 + (this.p.gravityFlipped ? -26 : 26)
       this._flyParticle2Emitter.stop();
       this._flyParticle2Active = false;
     }
-    this._shipDragEmitter.x = h;
+    const _0x2e5643 = _0xc43238 + this._scene._getMirrorXOffset(_0x119eb7 - _0xc43238);
+    this._shipDragEmitter.x = _0x2e5643;
     this._shipDragEmitter.particleY = this.p.gravityFlipped ? b(this.p.y) + _0x52b718 - 30 : b(this.p.y) + _0x52b718 + 30;
+    this._shipDragEmitter.setAngle(this.p.mirrored ? {
+      min: 245,
+      max: 335
+    } : {
+      min: 205,
+      max: 295
+    });
+    this._shipDragEmitter.gravityX = this.p.mirrored ? 700 : -700;
     const _0x2ac9d0 = this.p.isFlying && this.p.onGround && (this.p.gravityFlipped ? this.p.onCeiling : !this.p.onCeiling);
     if (_0x2ac9d0 && !this._shipDragActive) {
       this._shipDragEmitter.start();
@@ -2132,7 +2439,7 @@ this._particleEmitter.particleY = _0x519d38 + (this.p.gravityFlipped ? -26 : 26)
     if (this._endAnimating) {
       return;
     }
-    const _0x7f0705 = mirrorOffset !== undefined ? mirrorOffset : h;
+    const _0x7f0705 = mirrorOffset !== undefined ? mirrorOffset : centerX;
     const _0x1a433c = b(this.p.y) + cameraY;
     const _0x2907d3 = this._rotation;
     this._lastCameraX = cameraX;
@@ -2153,28 +2460,35 @@ if (this.p.isFlying) {
           _0x5dc75c.sprite.x = _0x7f0705 + _0x1b1d28;
           _0x5dc75c.sprite.y = _0x1a433c + _0x185f91;
           _0x5dc75c.sprite.rotation = this.p.mirrored ? -_0x2907d3 : _0x2907d3;
-          _0x5dc75c.sprite.scaleY = this.p.gravityFlipped ? -Math.abs(_0x5dc75c.sprite.scaleY) : Math.abs(_0x5dc75c.sprite.scaleY);
-          _0x5dc75c.sprite.scaleX = this.p.mirrored ? -Math.abs(_0x5dc75c.sprite.scaleX) : Math.abs(_0x5dc75c.sprite.scaleX);
+          const _miniS = this.p.isMini ? 0.6 : 1;
+          _0x5dc75c.sprite.scaleY = this.p.gravityFlipped ? -_miniS : _miniS;
+          _0x5dc75c.sprite.scaleX = this.p.mirrored ? -_miniS : _miniS;
         }
       }
       for (const _0x536f40 of this._playerLayers) {
         if (_0x536f40) {
           _0x536f40.sprite.x = _0x7f0705 + _0x562424;
-          _0x536f40.sprite.y = _0x1a433c + _0x3011c9;
+          _0x536f40.sprite.y = (_0x1a433c + _0x3011c9)+(this.p.isMini?8:0);
           _0x536f40.sprite.rotation = this.p.mirrored ? -_0x2907d3 : _0x2907d3;
-          _0x536f40.sprite.scaleY = this.p.gravityFlipped ? -Math.abs(_0x536f40.sprite.scaleY) : Math.abs(_0x536f40.sprite.scaleY);
-          _0x536f40.sprite.scaleX = this.p.mirrored ? -Math.abs(_0x536f40.sprite.scaleX) : Math.abs(_0x536f40.sprite.scaleX);
+          const _miniS = this.p.isMini ? 0.6 : 1;
+          const _shipCubeS = _miniS * 0.55;
+          _0x536f40.sprite.scaleY = this.p.gravityFlipped ? -_shipCubeS : _shipCubeS;
+          _0x536f40.sprite.scaleX = this.p.mirrored ? -_shipCubeS : _shipCubeS;
         }
       }
     } else {
       for (const _0x2c61a1 of this._allLayers) {
         if (_0x2c61a1) {
-          _0x2c61a1.sprite.x = _0x7f0705;
-          _0x2c61a1.sprite.y = _0x1a433c;
-          const isBallLayer = this._ballLayers.includes(_0x2c61a1);
-          _0x2c61a1.sprite.rotation = isBallLayer ? _0x2907d3 : (this.p.mirrored ? -_0x2907d3 : _0x2907d3);
-          _0x2c61a1.sprite.scaleY = this.p.gravityFlipped ? -Math.abs(_0x2c61a1.sprite.scaleY) : Math.abs(_0x2c61a1.sprite.scaleY);
-          _0x2c61a1.sprite.scaleX = this.p.mirrored ? -Math.abs(_0x2c61a1.sprite.scaleX) : Math.abs(_0x2c61a1.sprite.scaleX);
+            _0x2c61a1.sprite.x = _0x7f0705;
+            _0x2c61a1.sprite.y = _0x1a433c;
+            const isBallLayer = this._ballLayers.includes(_0x2c61a1);
+            _0x2c61a1.sprite.rotation = isBallLayer ? _0x2907d3 : (this.p.mirrored ? -_0x2907d3 : _0x2907d3);
+            let _miniS = this.p.isMini ? 0.6 : 1;
+            if (this.p.isWave && this._waveLayers.includes(_0x2c61a1)) {
+              _miniS *= 0.42; //fix wave size
+            }
+            _0x2c61a1.sprite.scaleY = (this.p.gravityFlipped ? -_miniS : _miniS);
+            _0x2c61a1.sprite.scaleX = (this.p.mirrored ? -_miniS : _miniS);
         }
       }
     }
@@ -2184,8 +2498,10 @@ if (this.p.isFlying) {
       this._waveSpriteLayer.sprite.y -= 1;
     }
     this._updateParticles(cameraX, cameraY, _0x3afedf);
-    if (window.showHitboxes) {
+    if (this._showHitboxes) {
       this.drawHitboxes(this._hitboxGraphics, cameraX, cameraY);
+    } else if (this._hitboxGraphics) {
+      this._hitboxGraphics.clear();
     }
   }
   enterShipMode(_0xeb37c6 = null) {
@@ -2338,6 +2654,7 @@ hitGround() {
     this.p.onGround = true;
     this.p.canJump = true;
     this.p.isJumping = false;
+    this.p.queuedHold = false;
     if (this.p.isBall) {
       if (_0x4a38a5) {
         this._rotation = Math.round(this._rotation / Math.PI) * Math.PI;
@@ -2349,7 +2666,7 @@ hitGround() {
     if (_0x4a38a5 && !this.p.isFlying && !this.p.isWave) {
       this._landIdx = !this._landIdx;
       const _0x31584b = this._landIdx ? this._landEmitter1 : this._landEmitter2;
-      const _0x2248d5 = this._lastCameraX + h;
+      const _0x2248d5 = this._scene._playerWorldX;
       const _0x17e0bb = this.p.gravityFlipped ? b(this.p.y) - 30 : b(this.p.y) + 30;
       _0x31584b.explode(10, _0x2248d5, _0x17e0bb);
     }
@@ -2371,7 +2688,7 @@ hitGround() {
     this._streak.stop();
     this._streak.reset();
     const _0x3f4b84 = this._scene;
-    const _0x3f0446 = _0x3f4b84._playerWorldX - _0x3f4b84._cameraX;
+    const _0x3f0446 = _0x3f4b84._getMirrorXOffset(_0x3f4b84._playerWorldX - _0x3f4b84._cameraX);
     const _0x53ac5b = b(this.p.y) + this._lastCameraY;
     const _0x281e43 = 0.9;
     _0x3f4b84.add.particles(_0x3f0446, _0x53ac5b, "GJ_WebSheet", {
@@ -2539,7 +2856,7 @@ hitGround() {
         const _0x159cfa = {
           spr: _0xba83f5,
           particle: _0x298d34,
-          xVel: _0x422587 + (Math.random() * 2 - 1) * _0x1e87b0,
+          xVel: (_0x422587 + (Math.random() * 2 - 1) * _0x1e87b0) * (this.p.mirrored ? -1 : 1),
           yVel: -(12 + (Math.random() * 2 - 1) * 6),
           timer: 1.4,
           fadeTime: 0.5,
@@ -2631,7 +2948,6 @@ hitGround() {
     this._explosionPieces = null;
   }
   _playPortalShine(_0x49e81f) {
-    console.log(_0x49e81f)
     const _0x4ed8ff = this._scene;
     const _0xf31b0d = _0x49e81f.x;
     const _0x3824c0 = b(_0x49e81f.portalY);
@@ -2716,8 +3032,6 @@ hitGround() {
     }
   }
   flipGravity(flipped, _0x11bbde = 0.5) {
-    if (this.flipCooldown == null || this.flipCooldown < Date.now()) {
-      this.flipCooldown = Date.now() + 100;
       console.log("flipGravity called: flipped=" + flipped + " current=" + this.p.gravityFlipped);
       if (this.p.gravityFlipped === flipped) {
         return;
@@ -2726,8 +3040,6 @@ hitGround() {
       this.p.yVelocity *= _0x11bbde;
       this.p.onGround = false;
       this.p.canJump = false;
-      this.p.isJumping = false;
-    }
   }
   runRotateAction() {
 
@@ -2755,15 +3067,33 @@ hitGround() {
     let _0x5f531c = Math.PI / 2;
     return Math.round(this._rotation / _0x5f531c) * _0x5f531c;
   }
-  slerp2D(_0x11f190, _0xf2c7b9, _0x8b3942) {
-    let _0x4ee783 = _0xf2c7b9 - _0x11f190;
-    while (_0x4ee783 > Math.PI) {
-      _0x4ee783 -= Math.PI * 2;
+  slerp2D(startAngle, endAngle, t) {
+    let halfStart = startAngle * 0.5;
+    let halfEnd = endAngle * 0.5;
+    let cosStart = Math.cos(halfStart);
+    let sinStart = Math.sin(halfStart);
+    let cosEnd = Math.cos(halfEnd);
+    let sinEnd = Math.sin(halfEnd);
+    let dot = (cosStart * cosEnd) + (sinStart * sinEnd);
+    let weightStart, weightEnd;
+    if (dot < 0.0) {
+        dot = -dot;
+        sinEnd = -sinEnd;
+        cosEnd = -cosEnd;
     }
-    while (_0x4ee783 < -Math.PI) {
-      _0x4ee783 += Math.PI * 2;
+    if (1.0 - dot > 0.0001) {
+        let theta = Math.acos(dot);
+        let sinTheta = Math.sin(theta);
+        weightStart = Math.sin(theta * (1.0 - t)) / sinTheta;
+        weightEnd = Math.sin(theta * t) / sinTheta;
+    } else {
+        weightStart = 1.0 - t;
+        weightEnd = t;
     }
-    return _0x11f190 + _0x4ee783 * _0x8b3942;
+    let interpSin = (sinStart * weightStart) + (sinEnd * weightEnd);
+    let interpCos = (cosStart * weightStart) + (cosEnd * weightEnd);
+    let out = Math.atan2(interpSin, interpCos);
+    return out + out;
   }
   updateGroundRotation(_0x5c24f7) {
     if (this.p.isBall || this.p.isWave) {
@@ -2791,15 +3121,24 @@ hitGround() {
   }
   playerIsFalling() {
     if (this.p.gravityFlipped) {
-      return this.p.yVelocity > 3.832796;
+      return this.p.yVelocity > p;
     } else {
-      return this.p.yVelocity < 3.832796;
+      return this.p.yVelocity < p;
     }
   }
   updateJump(_0x3d1c6f) {
     if (this.p.pendingVelocity !== null) {
       this.p.yVelocity = this.p.pendingVelocity;
       this.p.pendingVelocity = null;
+    }
+    if (this.p.isDashing) {
+      if (!this.p.upKeyDown || this.p.onGround) {
+        this.p.isDashing = false;
+        this.p.dashYVelocity = 0;
+      } else {
+        this.p.yVelocity = this.p.dashYVelocity;
+        return;
+      }
     }
     if (this.p.isFlying) {
       this._updateFlyJump(_0x3d1c6f);
@@ -2812,10 +3151,12 @@ hitGround() {
       this.p.onGround = false;
       this.p.canJump = false;
       this.p.upKeyPressed = false;
+      this.p.queuedHold = false;
       this.p.yVelocity = this.flipMod() * 22.360064;
       this.runRotateAction();
     } else if (this.p.isJumping) {
-      this.p.yVelocity -= p * _0x3d1c6f * this.flipMod();
+      const _miniGrav = this.p.isMini ? 1.4 : 1;
+      this.p.yVelocity -= p * _0x3d1c6f * this.flipMod() * _miniGrav;
       if (this.playerIsFalling()) {
         this.p.isJumping = false;
         this.p.onGround = false;
@@ -2824,7 +3165,8 @@ hitGround() {
       if (this.playerIsFalling()) {
         this.p.canJump = false;
       }
-      this.p.yVelocity -= p * _0x3d1c6f * this.flipMod();
+      const _miniGrav = this.p.isMini ? 1.4 : 1;
+      this.p.yVelocity -= p * _0x3d1c6f * this.flipMod() * _miniGrav;
       if (this.p.gravityFlipped) {
         this.p.yVelocity = Math.min(this.p.yVelocity, 30);
       } else {
@@ -2835,7 +3177,7 @@ hitGround() {
       }
       if (this.playerIsFalling()) {
         let _0x47ed2a;
-        _0x47ed2a = this.p.gravityFlipped ? this.p.yVelocity > p * 4 : this.p.yVelocity < -(p * 4);
+        _0x47ed2a = this.p.gravityFlipped ? this.p.yVelocity > p * 2 : this.p.yVelocity < -(p * 2);
         if (_0x47ed2a) {
           this.p.onGround = false;
         }
@@ -2869,7 +3211,8 @@ hitGround() {
     }
   }
 _updateBallJump(_0x2fe319) {
-  const _0x144266 = p * 0.6;
+  const _miniGrav = this.p.isMini ? 1.4 : 1;
+  const _0x144266 = p * 0.6 * _miniGrav;
   if (this.p.upKeyPressed && this.p.canJump) {
     const _0x47d739 = this.flipMod();
     this.p.upKeyPressed = false;
@@ -2890,7 +3233,7 @@ _updateBallJump(_0x2fe319) {
       this.p.yVelocity = Math.max(this.p.yVelocity, -30);
     }
     if (this.playerIsFalling()) {
-      const _0x1439be = this.p.gravityFlipped ? this.p.yVelocity > p * 4 : this.p.yVelocity < -(p * 4);
+      const _0x1439be = this.p.gravityFlipped ? this.p.yVelocity > p * 2 : this.p.yVelocity < -(p * 2);
       if (_0x1439be) {
         this.p.onGround = false;
       }
@@ -2913,8 +3256,8 @@ _updateBallJump(_0x2fe319) {
     this._rotation = _0x312a7f === 0 ? 0 : _0x312a7f > 0 ? -Math.PI / 4 : Math.PI / 4;
   }
   checkCollisions(_0x2f5078) {
-    const _0x6bfa06 = 30;
-    const _0x3c691e = _0x2f5078 + h;
+    const playerSize = this.p.isMini ? 18 : 30;
+    const _0x3c691e = _0x2f5078 + centerX;
     const _0x8e0d28 = this.p.y;
     const _0x37040a = this.p.lastY;
     const _0x11ee2f = this.p.isFlying || this.p.isWave ? 12 : 20;
@@ -2925,6 +3268,11 @@ _updateBallJump(_0x2fe319) {
     let _boostedThisStep = false;
     const _0x198534 = this._gameLayer.getNearbySectionObjects(_0x3c691e);
     for (let gameObj of _0x198534) {
+      if (gameObj.type === "hazard") {
+        if (window.noClip) {
+          continue;
+        }
+      }
       let left = gameObj.x - gameObj.w / 2;
       let right = gameObj.x + gameObj.w / 2;
       let top = gameObj.y - gameObj.h / 2;
@@ -2940,7 +3288,7 @@ _updateBallJump(_0x2fe319) {
       let rotatedRight = gameObj.x + rotatedHalfWidth;
       let rotatedTop = gameObj.y - rotatedHalfHeight;
       let rotatedBottom = gameObj.y + rotatedHalfHeight;
-      if (!(_0x3c691e + 30 <= rotatedLeft) && !(_0x3c691e - 30 >= rotatedRight) && !(_0x8e0d28 + _0x6bfa06 <= rotatedTop) && !(_0x8e0d28 - _0x6bfa06 >= rotatedBottom)) {
+      if (!(_0x3c691e + playerSize <= rotatedLeft) && !(_0x3c691e - playerSize >= rotatedRight) && !(_0x8e0d28 + playerSize <= rotatedTop) && !(_0x8e0d28 - playerSize >= rotatedBottom)) {
         const _colType = gameObj.type;
         if (_colType === "portal_fly") {
           if (!gameObj.activated) {
@@ -2981,13 +3329,13 @@ _updateBallJump(_0x2fe319) {
           if (!gameObj.activated) {
             gameObj.activated = true;
             this._playPortalShine(gameObj);
-            this.flipGravity(false, this.p.isBall ? 0.5: 0.5);
+            this.flipGravity(false, 0.5);
           }
         } else if (_colType === "portal_gravity_up") {
           if (!gameObj.activated) {
             gameObj.activated = true;
             this._playPortalShine(gameObj);
-            this.flipGravity(true, this.p.isBall ? 0.5: 0.5);
+            this.flipGravity(true, 0.5);
           }
         } else if (_colType === "portal_mirror_on") {
           if (!gameObj.activated) {
@@ -3001,11 +3349,33 @@ _updateBallJump(_0x2fe319) {
             this._playPortalShine(gameObj);
             this.p.mirrored = false;
           }
+        } else if (_colType === "portal_mini_on") {
+          if (!gameObj.activated) {
+            gameObj.activated = true;
+            this._playPortalShine(gameObj);
+            this.p.isMini = true;
+          }
+        } else if (_colType === "portal_mini_off") {
+          if (!gameObj.activated) {
+            gameObj.activated = true;
+            this._playPortalShine(gameObj);
+            this.p.isMini = false;
+          }
         } else if (_colType === jumpPadType) {
           if (!gameObj.activated) {
             gameObj.activated = true;
             const _padId = gameObj.padId;
-            const _grav = p;
+            if (_padId === 67) {
+              const now = Date.now();
+              if (!window.lastbluepad) {
+                window.lastbluepad = 0;
+              }
+              if (now - window.lastbluepad < 20) {
+                continue;
+              }
+              window.lastbluepad = now;
+            }
+            const _grav = 2;
             const _fm = this.flipMod();
             let _padVel = 0;
             let _padFlip = false;
@@ -3014,9 +3384,9 @@ _updateBallJump(_0x2fe319) {
               const _spFloor = this._gameLayer.getFloorY();
               const _spCeil = this._gameLayer.getCeilingY() || f;
               if (!this.p.gravityFlipped) {
-                this.p.y = _spCeil - 30;
+                this.p.y = _spCeil - playerSize;
               } else {
-                this.p.y = _spFloor + 30;
+                this.p.y = _spFloor + playerSize;
               }
               this.flipGravity(!this.p.gravityFlipped, 1.0);
               this.p.yVelocity = 0;
@@ -3058,18 +3428,11 @@ _updateBallJump(_0x2fe319) {
         } else if (_colType === jumpRingType) {
           const _orbId = gameObj.orbId;
           const _isDash = (_orbId === 1704 || _orbId === 1751);
-          const _needsClick = _isDash ? this.p.upKeyDown : this.p.upKeyPressed;
+          const _needsClick = _isDash ? this.p.upKeyDown : (this.p.queuedHold && this.p.upKeyDown);
           if (!gameObj.activated && _needsClick) {
             if (_isDash) {
               gameObj._dashHoldTicks = (gameObj._dashHoldTicks || 0) + 1;
-              if (_orbId === 1704 && gameObj._dashHoldTicks < 2) {
-              } else if (_orbId === 1751 && gameObj._dashHoldTicks < 2) {
-                gameObj.activated = true;
-                this.p.yVelocity *= 0.5;
-                this.flipGravity(!this.p.gravityFlipped);
-                this.p.upKeyPressed = false;
-                _boostedThisStep = true;
-              } else {
+              if (gameObj._dashHoldTicks < 2) {
                 gameObj.activated = true;
                 const _dashAngleDeg = gameObj.orbRotation || 0;
                 let _clampedAngle = _dashAngleDeg;
@@ -3077,59 +3440,77 @@ _updateBallJump(_0x2fe319) {
                 if (_clampedAngle >= 90 && _clampedAngle <= 270) { _clampedAngle = 180 - _clampedAngle; }
                 _clampedAngle = Math.max(-70, Math.min(70, _clampedAngle));
                 const _dashRad = _clampedAngle * Math.PI / 180;
-                const _dashSpeed = Math.abs(this.p.yVelocity) > 0.1 ? Math.abs(this.p.yVelocity) : 10.3860036;
-                this.p.yVelocity = Math.sin(_dashRad) * _dashSpeed * this.flipMod();
+                const _dashSpeed = 18;
+                const _dashVelY = Math.sin(_dashRad) * _dashSpeed * this.flipMod();
                 if (_orbId === 1751) {
                   this.flipGravity(!this.p.gravityFlipped);
                 }
+                this.p.isDashing = true;
+                this.p.dashYVelocity = _dashVelY;
+                this.p.yVelocity = _dashVelY;
                 this.p.onGround = false;
                 this.p.canJump = false;
+                this.p.isJumping = false;
                 this.p.upKeyPressed = false;
+                this.p.queuedHold = false;
+                this.runRotateAction();
                 _boostedThisStep = true;
+                try {
+                  for (let _orbSpr of (this._gameLayer._orbSprites || [])) {
+                    if (_orbSpr && _orbSpr._eeWorldX !== undefined && Math.abs(_orbSpr._eeWorldX - gameObj.x) < 10) {
+                      _orbSpr._hitTime = Date.now();
+                    }
+                  }
+                } catch(e) {}
               }
             } else {
               gameObj.activated = true;
-              const _grav = p;
               const _fm = this.flipMod();
               const _cubeJump = 22.360064;
               let _orbVel = 0;
+              let _flipBefore = false;
               let _flipAfter = false;
               if (_orbId === 1594) {
                 this.flipGravity(!this.p.gravityFlipped);
                 this.p.upKeyPressed = false;
+                this.p.queuedHold = false;
                 _boostedThisStep = true;
               } else {
                 if (this.p.isFlying) {
-                  if (_orbId === 36) { _orbVel = 8 * _grav; }
+                  if (_orbId === 36) { _orbVel = _cubeJump; }
                   else if (_orbId === 141) { _orbVel = _cubeJump * 0.37; }
                   else if (_orbId === 1333) { _orbVel = _cubeJump; }
-                  else if (_orbId === 84) { _orbVel = _cubeJump * 0.4; _flipAfter = true; }
-                  else if (_orbId === 1022) { _orbVel = _cubeJump * -0.7; _flipAfter = true; }
-                  else if (_orbId === 1330) { _orbVel = -14 * _grav; }
+                  else if (_orbId === 84) { _orbVel = _cubeJump * 0.7; _flipAfter = true; }
+                  else if (_orbId === 1022) { _orbVel = _cubeJump * 0.8; _flipBefore = true; }
+                  else if (_orbId === 1330) { _orbVel = -28; }
                 } else if (this.p.isBall) {
                   const _ballBase = _cubeJump * 0.7;
                   if (_orbId === 36) { _orbVel = _ballBase; }
                   else if (_orbId === 141) { _orbVel = _ballBase * 0.77; }
                   else if (_orbId === 1333) { _orbVel = _ballBase * 1.34; }
-                  else if (_orbId === 84) { _orbVel = _ballBase * 0.4; _flipAfter = true; }
-                  else if (_orbId === 1022) { _orbVel = _ballBase * -1; _flipAfter = true; }
-                  else if (_orbId === 1330) { _orbVel = -15 * _grav; }
+                  else if (_orbId === 84) { _orbVel = _ballBase; _flipAfter = true; }
+                  else if (_orbId === 1022) { _orbVel = _ballBase * 0.8; _flipBefore = true; }
+                  else if (_orbId === 1330) { _orbVel = -30; }
                 } else {
                   if (_orbId === 36) { _orbVel = _cubeJump; }
                   else if (_orbId === 141) { _orbVel = _cubeJump * 0.72; }
                   else if (_orbId === 1333) { _orbVel = _cubeJump * 1.38; }
-                  else if (_orbId === 84) { _orbVel = _cubeJump * 0.4; _flipAfter = true; }
-                  else if (_orbId === 1022) { _orbVel = _cubeJump * -1; _flipAfter = true; }
-                  else if (_orbId === 1330) { _orbVel = -15 * _grav; }
+                  else if (_orbId === 84) { _orbVel = _cubeJump; _flipAfter = true; }
+                  else if (_orbId === 1022) { _orbVel = _cubeJump * 0.8; _flipBefore = true; }
+                  else if (_orbId === 1330) { _orbVel = -30; }
                 }
                 this.p.isJumping = true;
                 this.p.onGround = false;
                 this.p.canJump = false;
                 this.p.upKeyPressed = false;
-                this.p.yVelocity = _fm * _orbVel;
-                if (_orbId === 1330 && this.p.isFlying) {
-                  this.p.wasBoosted = false;
-                } else if (_orbId === 1330) {
+                this.p.queuedHold = false;
+                if (_flipBefore) {
+                  this.flipGravity(!this.p.gravityFlipped);
+                  this.p.yVelocity = this.flipMod() * _orbVel;
+                } else {
+                  this.p.yVelocity = _fm * _orbVel;
+                }
+                if (_orbId === 1330) {
                   this.p.wasBoosted = false;
                 }
                 this.runRotateAction();
@@ -3137,10 +3518,48 @@ _updateBallJump(_0x2fe319) {
                 if (_flipAfter) {
                   this.flipGravity(!this.p.gravityFlipped);
                 }
+                try {
+                  for (let _orbSpr of (this._gameLayer._orbSprites || [])) {
+                    if (_orbSpr && _orbSpr._eeWorldX !== undefined && Math.abs(_orbSpr._eeWorldX - gameObj.x) < 10) {
+                      _orbSpr._hitTime = Date.now();
+                    }
+                  }
+                } catch(e) {}
               }
             }
           } else if (_isDash && !this.p.upKeyDown) {
             gameObj._dashHoldTicks = 0;
+          }
+        } else if (_colType === coinType) {
+          if (!gameObj.activated) {
+            gameObj.activated = true;
+            try {
+              const _coinSpr = this._gameLayer._coinSprites.find(s => s && s.active && Math.abs(s._coinWorldX - gameObj.x) < 2 && Math.abs(s._coinWorldY - gameObj.y) < 2);
+              if (_coinSpr && _coinSpr.scene) {
+                const _startY = _coinSpr.y;
+                _coinSpr.scene.tweens.add({
+                  targets: _coinSpr,
+                  y: _startY - 70,
+                  scaleX: (_coinSpr.scaleX || 1) * 1.3,
+                  scaleY: (_coinSpr.scaleY || 1) * 1.3,
+                  duration: 180,
+                  ease: 'Quad.Out',
+                  onComplete: () => {
+                    if (!_coinSpr.scene) return;
+                    _coinSpr.scene.tweens.add({
+                      targets: _coinSpr,
+                      y: _startY + 600,
+                      alpha: 0,
+                      duration: 1200,
+                      ease: 'Quad.In',
+                      onComplete: () => {
+                        try { _coinSpr.setVisible(false); } catch(e) {}
+                      }
+                    });
+                  }
+                });
+              }
+            } catch(e) {}
           }
         } else if (_colType === hazardType) {
           if (!window.noClip){
@@ -3148,25 +3567,24 @@ _updateBallJump(_0x2fe319) {
           }
           return;
         } else if (_colType === solidType) {
-          let _0x146a97 = _0x8e0d28 - _0x6bfa06 + _0x11ee2f;
-          let _0x869e42 = _0x37040a - _0x6bfa06 + _0x11ee2f;
-          let _0x3e7199 = _0x8e0d28 + _0x6bfa06 - _0x11ee2f;
-          let _0x135a9d = _0x37040a + _0x6bfa06 - _0x11ee2f;
+          let _0x146a97 = _0x8e0d28 - playerSize + _0x11ee2f;
+          let _0x869e42 = _0x37040a - playerSize + _0x11ee2f;
+          let _0x3e7199 = _0x8e0d28 + playerSize - _0x11ee2f;
+          let _0x135a9d = _0x37040a + playerSize - _0x11ee2f;
           const _0x55559d = 9;
           const _0x3c1654 = _0x3c691e + _0x55559d > left && _0x3c691e - _0x55559d < right && _0x8e0d28 + _0x55559d > top && _0x8e0d28 - _0x55559d < bottom;
           const _0xLandBot = (this.p.yVelocity <= 0 || this.p.onGround) && (_0x146a97 >= bottom || _0x869e42 >= bottom);
           const _0xLandTop = (this.p.yVelocity >= 0 || this.p.onGround) && (_0x3e7199 <= top || _0x135a9d <= top);
           const _0x2841ea = this.p.gravityFlipped ? _0xLandTop : _0xLandBot;
-          console.log(gameObj)
           if (_0x3c1654 && !_0x2841ea) {
             if (!window.noClip && gameObj.objid !== 143){
               this.killPlayer();
             }
             return;
           }
-          if (_0x3c691e + 30 - 5 > left && _0x3c691e - 30 + 5 < right) {
+          if (_0x3c691e + playerSize - 5 > left && _0x3c691e - playerSize + 5 < right) {
             if (!this.p.gravityFlipped && (_0x146a97 >= bottom || _0x869e42 >= bottom) && (this.p.yVelocity <= 0 || this.p.onGround)) {
-              this.p.y = bottom + _0x6bfa06;
+              this.p.y = bottom + playerSize;
               this.hitGround();
               _0x30410f = true;
               this.p.collideBottom = bottom;
@@ -3176,7 +3594,7 @@ _updateBallJump(_0x2fe319) {
               continue;
             }
             if (this.p.gravityFlipped && !this.p.isFlying && (_0x3e7199 <= top || _0x135a9d <= top) && (this.p.yVelocity >= 0 || this.p.onGround)) {
-              this.p.y = top - _0x6bfa06;
+              this.p.y = top - playerSize;
               this.hitGround();
               _0x30410f = true;
               this.p.onCeiling = true;
@@ -3187,7 +3605,7 @@ _updateBallJump(_0x2fe319) {
               continue;
             }
             if ((_0x3e7199 <= top || _0x135a9d <= top) && (this.p.yVelocity >= 0 || this.p.onGround) && this.p.isFlying) {
-              this.p.y = top - _0x6bfa06;
+              this.p.y = top - playerSize;
               this.hitGround();
               this.p.onCeiling = true;
               this.p.collideTop = top;
@@ -3226,8 +3644,8 @@ _updateBallJump(_0x2fe319) {
     let _0x3020c8 = this._gameLayer.getFloorY();
     const iscube = !this.p.isFlying && !this.p.isBall && !this.p.isWave;
     if (!_0x30410f && !_boostedThisStep) {
-      if (!this.p.gravityFlipped && this.p.y <= _0x3020c8 + 30) {
-        this.p.y = _0x3020c8 + 30;
+      if (!this.p.gravityFlipped && this.p.y <= _0x3020c8 + playerSize) {
+        this.p.y = _0x3020c8 + playerSize;
         this.hitGround();
       }
       if (this.p.gravityFlipped && !this.p.isFlying && !iscube) {
@@ -3235,16 +3653,16 @@ _updateBallJump(_0x2fe319) {
         if (gravCeilY === null) {
           gravCeilY = f;
         }
-        if (this.p.y >= gravCeilY - 30) {
-          this.p.y = gravCeilY - 30;
+        if (this.p.y >= gravCeilY - playerSize) {
+          this.p.y = gravCeilY - playerSize;
           this.hitGround();
           this.p.onCeiling = true;
         }
       }
     }
     let _0x496456 = this._gameLayer.getCeilingY();
-    if (_0x496456 !== null && this.p.y >= _0x496456 - 30 && !iscube) {
-      this.p.y = _0x496456 - 30;
+    if (_0x496456 !== null && this.p.y >= _0x496456 - playerSize && !iscube) {
+      this.p.y = _0x496456 - playerSize;
       this.hitGround();
       this.p.onCeiling = true;
     }
@@ -3253,8 +3671,8 @@ _updateBallJump(_0x2fe319) {
       return;
     }
     if (this.p.isFlying || this.p.isWave) {
-      const _0x354b7c = this.p.y <= _0x3020c8 + 30;
-      const _0xdc296 = _0x496456 !== null && this.p.y >= _0x496456 - 30;
+      const _0x354b7c = this.p.y <= _0x3020c8 + playerSize;
+      const _0xdc296 = _0x496456 !== null && this.p.y >= _0x496456 - playerSize;
       if (!_0x30410f && !_0x354b7c && this.p.collideTop === 0 && !_0xdc296) {
         this.p.onGround = false;
       }
@@ -3262,73 +3680,76 @@ _updateBallJump(_0x2fe319) {
   }
   drawHitboxes(graphics, camX, camY) {
     graphics.clear();
-    const _0x5dd446 = 30;
-    const _0xce3c85 = 30;
-    const _0x2cf1c7 = camX + h;
-    const _0x5e3ebe = this.p.y;
-    const _0x51832d = this.p.isFlying || this.p.isWave ? 12 : 20;
-    const _0x286071 = this._gameLayer.getNearbySectionObjects(_0x2cf1c7);
-    for (let _0x42ccb8 of _0x286071) {
-      let _0x52deab = _0x42ccb8.x - camX;
-      let _0x3e179d = b(_0x42ccb8.y) + camY;
-      let _0x17cd1a = 65280;
-      if (_0x42ccb8.type === hazardType) {
-        _0x17cd1a = 16729156;
-      } else if (_0x42ccb8.type === "portal_fly" || _0x42ccb8.type === "portal_cube" || _0x42ccb8.type === "portal_ball" || _0x42ccb8.type === portalWaveType) {
-        _0x17cd1a = 4491519;
-      } else if (_0x42ccb8.type === "portal_gravity_down" || _0x42ccb8.type === "portal_gravity_up") {
-        _0x17cd1a = 16776960;
-      } else if (_0x42ccb8.type === "portal_mirror_on" || _0x42ccb8.type === "portal_mirror_off") {
-        _0x17cd1a = 16744448;
-      } else if (_0x42ccb8.type === jumpPadType) {
-        _0x17cd1a = 16744192;
-      } else if (_0x42ccb8.type === jumpRingType) {
-        _0x17cd1a = 16711935;
+    const playerSize = this.p.isMini ? 18 : 30;
+    const hitboxsize = playerSize*2;
+    const camXCenter = camX + centerX;
+    const playerY = this.p.y;
+    const nearbyObjects = this._gameLayer.getNearbySectionObjects(camXCenter);
+    for (let nearObject of nearbyObjects) {
+      let objXCenter = nearObject.x - camX;
+      let objYCenter = b(nearObject.y) + camY;
+      let hitboxColor = 65280;
+      if (nearObject.type === hazardType) {
+        hitboxColor = 16729156;
+      } else if (nearObject.type === "portal_fly" || nearObject.type === "portal_cube" || nearObject.type === "portal_ball" || nearObject.type === portalWaveType) {
+        hitboxColor = 4491519;
+      } else if (nearObject.type === "portal_gravity_down" || nearObject.type === "portal_gravity_up") {
+        hitboxColor = 16776960;
+      } else if (nearObject.type === "portal_mirror_on" || nearObject.type === "portal_mirror_off") {
+        hitboxColor = 16744448;
+      } else if (nearObject.type === "portal_mini_on" || nearObject.type === "portal_mini_off") {
+        hitboxColor = 16711935;
+      } else if (nearObject.type === jumpPadType) {
+        hitboxColor = 16744192;
+      } else if (nearObject.type === jumpRingType) {
+        hitboxColor = 16711935;
       }
-      let rot = Phaser.Math.DegToRad(_0x42ccb8.rotationDegrees);
+      let rot = Phaser.Math.DegToRad(nearObject.rotationDegrees);
       let cos = Math.cos(rot);
       let sin = Math.sin(rot);
-      let _0x5a = -_0x42ccb8.w / 2;
-      let _0x2b = -_0x42ccb8.h / 2;
-      let _0x1c =  _0x42ccb8.w / 2;
-      let _0x3d =  _0x42ccb8.h / 2;
-      let _0xpts = [
-        { x: _0x5a, y: _0x2b },
-        { x: _0x1c, y: _0x2b },
-        { x: _0x1c, y: _0x3d },
-        { x: _0x5a, y: _0x3d }
+      let negWidth = -nearObject.w / 2;
+      let negHeight = -nearObject.h / 2;
+      let posWidth =  nearObject.w / 2;
+      let posHeight =  nearObject.h / 2;
+      let points = [
+        { x: negWidth, y: negHeight },
+        { x: posWidth, y: negHeight },
+        { x: posWidth, y: posHeight },
+        { x: negWidth, y: posHeight }
       ];
-      let _0xrot = _0xpts.map(p => ({
-        x: _0x52deab + p.x * cos - p.y * sin,
-        y: _0x3e179d + p.x * sin + p.y * cos
+      let rotations = points.map(p => ({
+        x: objXCenter + p.x * cos - p.y * sin,
+        y: objYCenter + p.x * sin + p.y * cos
       }));
-      graphics.lineStyle(2, _0x17cd1a, 0.7);
+      graphics.lineStyle(2, hitboxColor, 0.7);
       graphics.beginPath();
-      graphics.moveTo(_0xrot[0].x, _0xrot[0].y);
-      graphics.lineTo(_0xrot[1].x, _0xrot[1].y);
-      graphics.lineTo(_0xrot[2].x, _0xrot[2].y);
-      graphics.lineTo(_0xrot[3].x, _0xrot[3].y);
+      graphics.moveTo(rotations[0].x, rotations[0].y);
+      graphics.lineTo(rotations[1].x, rotations[1].y);
+      graphics.lineTo(rotations[2].x, rotations[2].y);
+      graphics.lineTo(rotations[3].x, rotations[3].y);
       graphics.closePath();
       graphics.strokePath();
     }
-    const _0x7a132d = h;
-    const _0x1e788a = b(_0x5e3ebe) + camY;
-    graphics.lineStyle(2, hexToHexadecimal("00ffff"), 0.8);
-    graphics.strokeRect(_0x7a132d - _0x5dd446, _0x1e788a - _0xce3c85, g, g);
-    graphics.lineStyle(2, hexToHexadecimal("ffff00"), 0.8);
-    graphics.strokeRect(_0x7a132d - _0x5dd446 + 5, _0x1e788a - _0xce3c85, 50, g);
+    const _0x1e788a = b(playerY) + camY;
+    // comments so its easier for other people to read ts
+    // outer box (red)
     graphics.lineStyle(2, hexToHexadecimal("ff0000"), 0.8);
-    graphics.strokeRect(_0x7a132d - _0x5dd446, _0x1e788a - _0xce3c85 + 5, g, 50);
-    let _0x1eec42 = b(_0x5e3ebe - _0xce3c85 + _0x51832d) + camY;
-    let _0xf6f69b = b(_0x5e3ebe + _0xce3c85 - _0x51832d) + camY;
-    graphics.lineStyle(2, hexToHexadecimal("ff8800"), 0.9);
-    graphics.lineBetween(_0x7a132d - _0x5dd446 - 8, _0x1eec42, _0x7a132d + _0x5dd446 + 8, _0x1eec42);
-    graphics.lineBetween(_0x7a132d - _0x5dd446 - 8, _0xf6f69b, _0x7a132d + _0x5dd446 + 8, _0xf6f69b);
-    graphics.lineStyle(2, hexToHexadecimal("ffffff"), 1);
-    graphics.strokeRect(_0x7a132d - 9, _0x1e788a - 9, 36, 18);
+    graphics.strokeRect(centerX - playerSize, _0x1e788a - playerSize, hitboxsize, hitboxsize);
+    // ----
+    // inner circle (dark red)
+    graphics.lineStyle(2, hexToHexadecimal("b30001"), 0.8);
+    graphics.strokeCircle((centerX - playerSize)+hitboxsize/2, (_0x1e788a - playerSize)+hitboxsize/2, hitboxsize/2);
+    // ----
+    // inner hitbox (blue)
+    graphics.lineStyle(2, hexToHexadecimal("0000ff"), 1);
+    graphics.strokeRect(centerX - 9, _0x1e788a - 9, 18, 18);
+    // ----
   }
   setShowHitboxes(_0x2133d2) {
-    this._showHitboxes = /*_0x2133d2*/ true;
+    this._showHitboxes = !!_0x2133d2;
+    if (!this._showHitboxes && this._hitboxGraphics) {
+      this._hitboxGraphics.clear();
+    }
   }
   playEndAnimation(_0x24408e, _0x281588, _0x54bbf4) {
     this._endAnimating = true;
@@ -3727,21 +4148,23 @@ class xs extends Phaser.Scene {
   create() {
     this._bgSpeedX = 0.1;
     this._bgSpeedY = 0.1;
-    this._menuCameraX = -h;
-    this._prevCameraX = -h;
-    this._bg = this.add.tileSprite(0, 0, r, n, "game_bg_01").setOrigin(0, 0).setScrollFactor(0).setDepth(-10);
+    this._menuCameraX = -centerX;
+    this._prevCameraX = -centerX;
+    this._bg = this.add.tileSprite(0, 0, screenWidth, screenHeight, "game_bg_01").setOrigin(0, 0).setScrollFactor(0).setDepth(-10);
     const _0x15d27a = this.textures.get("game_bg_01").source[0].height;
-    this._bgInitY = _0x15d27a - n - o;
-    this._cameraX = -h;
+    this._bgInitY = _0x15d27a - screenHeight - o;
+    this._cameraX = -centerX;
     this._cameraY = 0;
     this._cameraXRef = {
       get value() {
         return this._v;
       },
-      _v: -h
+      _v: -centerX
     };
     this._state = new PlayerState();
     this._level = new us(this, this._cameraXRef);
+    this._orbGfx = null;
+    this._orbGfxTimer = 0;
     this._player = new ps(this, this._state, this._level);
     this._colorManager = new ms();
     if (this._audio == null) {
@@ -3780,7 +4203,7 @@ class xs extends Phaser.Scene {
       tint: window.mainColor,
       emitting: false,
       emitCallback: _0x3c2a3e => {
-        _0x3c2a3e.x = this._glitterCenterX + (Math.random() * 2 - 1) * (r / 1.8);
+        _0x3c2a3e.x = this._glitterCenterX + (Math.random() * 2 - 1) * (screenWidth / 1.8);
         _0x3c2a3e.y = this._glitterCenterY + (Math.random() * 2 - 1) * 320;
       }
     });
@@ -3815,11 +4238,11 @@ class xs extends Phaser.Scene {
     this._downloadBtns = [];
     const _0x4fc67f = [{
       key: "downloadSteam_001",
-      url: ""
+      url: "https://github.com/web-dashers/web-dashers.github.io"
     },
     {
       key: "downloadApple_001",
-      url: ""
+      url: "https://discord.gg/TfEzAVWPSJ"
     }];
     for (let _0xfeaf5c = 0; _0xfeaf5c < _0x4fc67f.length; _0xfeaf5c++) {
       const _0x1ce2a6 = _0x4fc67f[_0xfeaf5c];
@@ -3829,7 +4252,7 @@ class xs extends Phaser.Scene {
       this._downloadBtns.push(_0x1d293f);
     }
     const _0x28fa5b = this.scale.isFullscreen;
-    this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFullscreenOff_001.png" : "toggleFullscreenOn_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setAlpha(0.8).setTint(Phaser.Display.Color.GetColor(0, Math.round(102), 255)).setInteractive();
+    this._menuFsBtn = this.add.image(33, 33, "GJ_WebSheet", _0x28fa5b ? "toggleFullscreenOff_001.png" : "toggleFullscreenOn_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setAlpha(0.8).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
     this._expandHitArea(this._menuFsBtn, 1.5);
     this._makeBouncyButton(this._menuFsBtn, 0.64, () => {
       const _0x26b7c = !this.scale.isFullscreen;
@@ -3837,7 +4260,7 @@ class xs extends Phaser.Scene {
       this._expandHitArea(this._menuFsBtn, 1.5);
       this._toggleFullscreen();
     }, () => this._menuActive);
-    this._menuInfoBtn = this.add.image(r - 30 - 3, 33, "GJ_WebSheet", "GJ_infoIcon_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setAlpha(0.8).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
+    this._menuInfoBtn = this.add.image(screenWidth - 30 - 3, 33, "GJ_WebSheet", "GJ_infoIcon_001.png").setScrollFactor(0).setDepth(30).setScale(0.64).setAlpha(0.8).setTint(Phaser.Display.Color.GetColor(255, 255, 255)).setInteractive();
     this._expandHitArea(this._menuInfoBtn, 1.5);
     this._makeBouncyButton(this._menuInfoBtn, 0.64, () => {
       this._buildInfoPopup();
@@ -3872,18 +4295,639 @@ class xs extends Phaser.Scene {
     this._playBtn = this.add.image(0, 0, "GJ_WebSheet", "GJ_playBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
     this._playBtnPressed = false;
     this._makeBouncyButton(this._playBtn, 1, () => {
-      this._audio.stopMusic();
-      this._audio.playEffect("playSound_01", {
-        volume: 1
+      this._openLevelSelect();
+    }, () => this._menuActive && !this._playBtnPressed && !this._levelSelectOverlay);
+    // creator stuff
+    this._creatorBtn = this.add.image(0, 0, "GJ_GameSheet04", "GJ_creatorBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive().setScale(1);
+    this._creatorOverlay = null;
+    this._creatorOverlayObjects = null;
+
+    this._openCreatorMenu = () => {
+      if (this._creatorOverlay) return;
+
+      const sw = screenWidth;
+      const sh = screenHeight;
+
+      const fadeIn = this.add.graphics().setScrollFactor(0).setDepth(200);
+      fadeIn.fillStyle(0x000000, 1);
+      fadeIn.fillRect(0, 0, sw, sh);
+      this.tweens.add({ targets: fadeIn, alpha: 0, duration: 300, ease: "Linear", onComplete: () => fadeIn.destroy() });
+
+      const overlay = this.add.graphics().setScrollFactor(0).setDepth(100);
+      const gradientSteps = 80;
+      for (let gi = 0; gi < gradientSteps; gi++) {
+        const t = gi / (gradientSteps - 1);
+        const r1 = Math.round(0x00 + (0x01 - 0x00) * t);
+        const g1 = Math.round(0x65 + (0x2c - 0x65) * t);
+        const b1 = Math.round(0xff + (0x71 - 0xff) * t);
+        const bandColor = (r1 << 16) | (g1 << 8) | b1;
+        const bandY = Math.floor(gi * sh / gradientSteps);
+        const bandH = Math.ceil(sh / gradientSteps) + 1;
+        overlay.fillStyle(bandColor, 1);
+        overlay.fillRect(0, bandY, sw, bandH);
+      }
+      this._creatorOverlay = overlay;
+
+      const blocker = this.add.zone(sw / 2, sh / 2, sw, sh)
+        .setScrollFactor(0).setDepth(101).setInteractive();
+
+      const cornerTL = this.add.image(0,  0,  "GJ_GameSheet03", "GJ_sideArt_001.png")
+        .setScrollFactor(0).setDepth(103).setOrigin(0, 0).setFlipX(true).setFlipY(false);
+      const cornerBL = this.add.image(0,  sh, "GJ_GameSheet03", "GJ_sideArt_001.png")
+        .setScrollFactor(0).setDepth(103).setOrigin(0, 1).setFlipX(true).setFlipY(true);
+
+      const backBtn = this.add.image(50, 48, "GJ_GameSheet03", "GJ_arrow_03_001.png")
+        .setScrollFactor(0).setDepth(104).setFlipX(true)
+        .setScale(1, -1).setRotation(Math.PI).setInteractive();
+      backBtn.on("pointerup", () => this._closeCreatorMenu());
+
+      this._creatorOverlayObjects = [overlay, blocker, cornerTL, cornerBL, backBtn];
+
+      const comingSoonLabel = this.add.bitmapText(sw / 2, sh / 2 - 20, "bigFont", "Coming Soon!", 52)
+        .setScrollFactor(0).setDepth(104).setOrigin(0.5, 0.5);
+      const creditLabel = this.add.bitmapText(sw / 2, sh / 2 + 44, "bigFont", "- rohanis0000", 30)
+        .setScrollFactor(0).setDepth(104).setOrigin(0.5, 0.5);
+      this._creatorOverlayObjects.push(comingSoonLabel, creditLabel);
+    };
+    this._makeBouncyButton(this._creatorBtn, 1, () => {
+      this._openCreatorMenu();
+      if (this._creatorBtn) {
+        this.tweens.killTweensOf(this._creatorBtn);
+        this._creatorBtn.y = 320;
+        this._creatorBtn.setScale(1);
+        this.tweens.add({
+          targets: this._creatorBtn,
+          y: 324,
+          duration: 750,
+          ease: "Quad.InOut",
+          yoyo: true,
+          repeat: -1
+        });
+      }
+    }, () => this._menuActive && !this._levelSelectOverlay);
+      //icon stufff
+    this._iconBtn = this.add.image(0, 0, "GJ_GameSheet03", "GJ_garageBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive().setScale(1);
+    this._iconBtnSelected = false;
+    this._makeBouncyButton(this._iconBtn, 1, () => {
+      this._openIconSelector();
+      if (this._iconBtn) {
+        this.tweens.killTweensOf(this._iconBtn);
+        this._iconBtn.y = 320;
+        this._iconBtn.setScale(1);
+        this.tweens.add({
+          targets: this._iconBtn,
+          y: 324,
+          duration: 750,
+          ease: "Quad.InOut",
+          yoyo: true,
+          repeat: -1
+        });
+      }
+    }, () => this._menuActive && !this._levelSelectOverlay);
+
+    this._iconOverlay = null;
+
+    const _iconFrameSets = {
+      icon: [
+        "player_04_001.png", "player_03_001.png", "player_05_001.png", "player_06_001.png", "player_07_001.png", "player_22_001.png", "player_30_001.png", "player_35_001.png", "player_84_001.png", "player_132_001.png",
+        "player_08_001.png", "player_09_001.png", "player_10_001.png", "player_11_001.png", "player_12_001.png", "player_13_001.png", "player_14_001.png", "player_15_001.png", "player_16_001.png", "player_17_001.png",
+        "player_18_001.png", "player_19_001.png", "player_20_001.png", "player_21_001.png", "player_23_001.png", "player_24_001.png", "player_25_001.png", "player_26_001.png", "player_27_001.png", "player_28_001.png",
+
+        "player_29_001.png", "player_31_001.png", "player_32_001.png", "player_33_001.png", "player_34_001.png", "player_36_001.png", "player_37_001.png", "player_38_001.png", "player_39_001.png", "player_40_001.png",
+        "player_41_001.png", "player_42_001.png", "player_43_001.png", "player_44_001.png", "player_45_001.png", "player_46_001.png", "player_47_001.png", "player_48_001.png", "player_49_001.png", "player_50_001.png",
+        "player_51_001.png", "player_52_001.png", "player_53_001.png", "player_54_001.png", "player_55_001.png", "player_56_001.png", "player_57_001.png", "player_58_001.png", "player_59_001.png", "player_60_001.png",
+      ],
+      ship: [
+        "ship_01_001.png", "ship_02_001.png", "ship_03_001.png", "ship_04_001.png", "ship_17_001.png", "ship_22_001.png", "ship_33_001.png", "ship_11_001.png", "ship_12_001.png", "ship_10_001.png",
+        "ship_05_001.png", "ship_06_001.png", "ship_07_001.png", "ship_08_001.png", "ship_09_001.png", "ship_13_001.png", "ship_14_001.png", "ship_15_001.png", "ship_16_001.png", "ship_18_001.png",
+        "ship_19_001.png", "ship_20_001.png", "ship_21_001.png", "ship_23_001.png", "ship_24_001.png", "ship_25_001.png", "ship_26_001.png", "ship_27_001.png", "ship_28_001.png", "ship_29_001.png",
+
+        "ship_30_001.png", "ship_31_001.png", "ship_32_001.png", "ship_34_001.png", "ship_35_001.png", "ship_36_001.png", "ship_37_001.png", "ship_38_001.png", "ship_39_001.png", "ship_40_001.png",
+        "ship_41_001.png", "ship_42_001.png", "ship_43_001.png", "ship_44_001.png", "ship_45_001.png", "ship_46_001.png", "ship_47_001.png", "ship_48_001.png", "ship_49_001.png", "ship_50_001.png",
+        "ship_51_001.png", "ship_52_001.png", "ship_53_001.png", "ship_54_001.png", "ship_55_001.png", "ship_56_001.png", "ship_57_001.png", "ship_58_001.png", "ship_59_001.png", "ship_60_001.png",
+      ],
+      ball: [
+        "player_ball_01_001.png", "player_ball_02_001.png", "player_ball_03_001.png", "player_ball_04_001.png", "player_ball_05_001.png", "player_ball_06_001.png", "player_ball_07_001.png", "player_ball_08_001.png", "player_ball_09_001.png", "player_ball_10_001.png",
+        "player_ball_11_001.png", "player_ball_12_001.png", "player_ball_13_001.png", "player_ball_14_001.png", "player_ball_15_001.png", "player_ball_16_001.png", "player_ball_17_001.png", "player_ball_18_001.png", "player_ball_19_001.png", "player_ball_20_001.png",
+        "player_ball_21_001.png", "player_ball_22_001.png", "player_ball_23_001.png", "player_ball_24_001.png", "player_ball_25_001.png", "player_ball_26_001.png", "player_ball_27_001.png", "player_ball_28_001.png", "player_ball_29_001.png", "player_ball_30_001.png",
+
+        "player_ball_31_001.png", "player_ball_32_001.png", "player_ball_33_001.png", "player_ball_34_001.png", "player_ball_35_001.png", "player_ball_36_001.png", "player_ball_37_001.png", "player_ball_38_001.png", "player_ball_39_001.png", "player_ball_40_001.png",
+        "player_ball_41_001.png", "player_ball_42_001.png", "player_ball_43_001.png", "player_ball_44_001.png", "player_ball_45_001.png", "player_ball_46_001.png", "player_ball_47_001.png", "player_ball_48_001.png", "player_ball_49_001.png", "player_ball_50_001.png",
+        "player_ball_51_001.png", "player_ball_52_001.png",
+      ],
+    };
+
+    const _iconWindowProps = {
+      icon: "currentPlayer",
+      ship: "currentShip",
+      ball: "currentBall",
+    };
+
+    const _iconAtlas = {
+      icon: "GJ_GameSheetIcons",
+      ship: "GJ_GameSheetIcons",
+      ball: "GJ_GameSheetIcons",
+    };
+
+    const _tabBtnFrames = {
+      icon: { on: "gj_iconBtn_on_001.png",  off: "gj_iconBtn_off_001.png"  },
+      ship: { on: "gj_shipBtn_on_001.png",  off: "gj_shipBtn_off_001.png"  },
+      ball: { on: "gj_ballBtn_on_001.png",  off: "gj_ballBtn_off_001.png"  },
+    };
+
+    this._openIconSelector = (startTab = "icon") => {
+      if (this._iconOverlay) return;
+
+      const sw = screenWidth;
+      const sh = screenHeight;
+
+      const fadeIn = this.add.graphics().setScrollFactor(0).setDepth(200);
+      fadeIn.fillStyle(0x000000, 1);
+      fadeIn.fillRect(0, 0, sw, sh);
+      this.tweens.add({ targets: fadeIn, alpha: 0, duration: 300, ease: "Linear", onComplete: () => fadeIn.destroy() });
+
+      const overlay = this.add.graphics().setScrollFactor(0).setDepth(100);
+      const gradientSteps = 80;
+      for (let gi = 0; gi < gradientSteps; gi++) {
+        const t = gi / (gradientSteps - 1);
+        const r1 = Math.round(0x92 + (0x3a - 0x92) * t);
+        const g1 = Math.round(0x92 + (0x3a - 0x92) * t);
+        const b1 = Math.round(0x92 + (0x3a - 0x92) * t);
+        const bandColor = (r1 << 16) | (g1 << 8) | b1;
+        const bandY = Math.floor(gi * sh / gradientSteps);
+        const bandH = Math.ceil(sh / gradientSteps) + 1;
+        overlay.fillStyle(bandColor, 1);
+        overlay.fillRect(0, bandY, sw, bandH);
+      }
+      this._iconOverlay = overlay;
+
+      const blocker = this.add.zone(sw / 2, sh / 2, sw, sh)
+        .setScrollFactor(0).setDepth(101).setInteractive();
+
+      const titleTxt = this.add.bitmapText(sw / 2, 60, "goldFont", "Icon Selector", 32)
+        .setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(105);
+
+      this._iconOverlayObjects = [overlay, blocker, titleTxt];
+
+      const backBtn = this.add.image(50, 48, "GJ_GameSheet03", "GJ_arrow_03_001.png")
+        .setScrollFactor(0).setDepth(104).setFlipY(true)
+        .setFlipX(true)
+        .setRotation(Math.PI).setInteractive();
+      this._iconOverlayObjects.push(backBtn);
+      this._makeBouncyButton(backBtn, 1, () => this._closeIconSelector());
+
+      const topBarHeight = 100;
+      const lineY = topBarHeight + 100;
+      const linePadding = 230;
+      const topBar = this.add.graphics().setScrollFactor(0).setDepth(102);
+      const lineSegments = 40;
+      const lineStart = linePadding;
+      const lineEnd = sw - linePadding;
+      const lineWidth = lineEnd - lineStart;
+      const fadeZone = lineWidth * 0.25;
+      for (let li = 0; li < lineSegments; li++) {
+    const t0 = li / lineSegments;
+    const t1 = (li + 1) / lineSegments;
+    const x0 = lineStart + t0 * lineWidth;
+    const x1 = lineStart + t1 * lineWidth;
+    const mid = (t0 + t1) / 2 * lineWidth;
+    let alpha;
+    if (mid < fadeZone) {
+      alpha = mid / fadeZone;
+    } else if (mid > lineWidth - fadeZone) {
+      alpha = (lineWidth - mid) / fadeZone;
+    } else {
+      alpha = 1;
+    }
+    topBar.lineStyle(3, 0xFFFFFF, alpha);
+    topBar.beginPath();
+    topBar.moveTo(x0, lineY);
+    topBar.lineTo(x1, lineY);
+    topBar.strokePath();
+  }
+      this._iconOverlayObjects.push(topBar);
+
+      const cols = 10;
+      const iconSize = 60;
+      const padding = 18;
+      const containerPadding = 10;
+      const rows = 3;
+      const containerWidth  = cols * iconSize + (cols - 1) * padding + 12;
+      const containerHeight = rows * iconSize + (rows - 1) * padding + 12;
+      const containerX = sw / 2 - containerWidth / 2;
+      const containerY = sh - containerHeight - containerPadding - 130;
+      const startX = containerX + 6 + iconSize / 2;
+      const startY = containerY + 6 + iconSize / 2;
+
+      const gridBg = this.add.graphics().setScrollFactor(0).setDepth(102);
+      gridBg.fillStyle(0x454444, 1);
+      gridBg.fillRoundedRect(containerX, containerY, containerWidth, containerHeight, 10);
+      this._iconOverlayObjects.push(gridBg);
+
+      const cornerTL = this.add.image(0,  0,  "GJ_GameSheet03", "GJ_sideArt_001.png").setScrollFactor(0).setDepth(103).setOrigin(0, 0).setFlipX(true).setFlipY(false).setRotation();
+      const cornerTR = this.add.image(sw, 0,  "GJ_GameSheet03", "GJ_sideArt_001.png").setScrollFactor(0).setDepth(103).setOrigin(1, 0).setFlipY(false).setFlipX(false);
+      const cornerBR = this.add.image(sw, sh, "GJ_GameSheet03", "GJ_sideArt_001.png").setScrollFactor(0).setDepth(103).setOrigin(1, 1).setFlipX(false).setFlipY(true);
+      const cornerBL = this.add.image(0,  sh, "GJ_GameSheet03", "GJ_sideArt_001.png").setScrollFactor(0).setDepth(103).setOrigin(0, 1).setFlipX(true).setFlipY(true);
+      this._iconOverlayObjects.push(cornerTL, cornerTR, cornerBR, cornerBL);
+
+      const navDotSpacing = 28;
+      const navDotY = containerY + containerHeight + 26;
+      const navDot1 = this.add.image(sw / 2 - navDotSpacing / 1.5, navDotY, "GJ_GameSheet03", "gj_navDotBtn_on_001.png").setScrollFactor(0).setDepth(104).setScale(0.75);
+      const navDot2 = this.add.image(sw / 2 + navDotSpacing / 1.5, navDotY, "GJ_GameSheet03", "gj_navDotBtn_off_001.png").setScrollFactor(0).setDepth(104).setScale(0.75);
+      this._iconOverlayObjects.push(navDot1, navDot2);
+      const _updateNavDots = (page) => {
+        navDot1.setTexture("GJ_GameSheet03", page === 0 ? "gj_navDotBtn_on_001.png" : "gj_navDotBtn_off_001.png");
+        navDot2.setTexture("GJ_GameSheet03", page === 1 ? "gj_navDotBtn_on_001.png" : "gj_navDotBtn_off_001.png");
+      };
+
+      const rainbowColors = [
+        0xFF0000, 0xFF4500, 0xFF7F00, 0xFFAA00, 0xFFD700,
+        0xFFFF00, 0xAAFF00, 0x00FF00, 0x00FF7F, 0x00FFFF,
+        0x007FFF, 0x0000FF, 0x7F00FF, 0xFF00FF, 0xFF007F,
+        0xFFFFFF, 0xC0C0C0, 0x808080, 0x404040, 0x000000,
+      ];
+
+      const colorBtnSize = 35;
+      const colorPadding = 4;
+      const colorRowWidth = rainbowColors.length * (colorBtnSize + colorPadding) - colorPadding;
+      const colorRow1Y = containerY + containerHeight + 70;
+      const colorRow2Y = colorRow1Y + colorBtnSize + 10;
+      const colorRowStartX = sw / 2 - colorRowWidth / 2 + colorBtnSize / 2;
+
+      const colorLabel1 = this.add.text(sw / 2 - colorRowWidth / 2, colorRow1Y - 14, "", {
+        fontSize: "11px", color: "#ffffff", fontFamily: "Arial"}).setScrollFactor(0).setDepth(104).setOrigin(0, 0.5).setAlpha(1);
+      this._iconOverlayObjects.push(colorLabel1);
+
+      const colorLabel2 = this.add.text(sw / 2 - colorRowWidth / 2, colorRow2Y - 14, "", {
+        fontSize: "11px", color: "#ffffff", fontFamily: "Arial"}).setScrollFactor(0).setDepth(104).setOrigin(0, 0.5).setAlpha(1);
+      this._iconOverlayObjects.push(colorLabel2);
+
+      for (let ci = 0; ci < rainbowColors.length; ci++) {
+        const cx = colorRowStartX + ci * (colorBtnSize + colorPadding);
+
+        const btn1AtlasInfo = R(this, "GJ_colorBtn_001.png");
+        let btn1;
+        if (btn1AtlasInfo) {
+          btn1 = this.add.image(cx, colorRow1Y, btn1AtlasInfo.atlas, btn1AtlasInfo.frame).setScrollFactor(0).setDepth(104).setTint(rainbowColors[ci]).setScale(0.5).setInteractive();
+        } else {
+          btn1 = this.add.rectangle(cx, colorRow1Y, colorBtnSize, colorBtnSize, rainbowColors[ci]).setScrollFactor(0).setDepth(104).setInteractive();
+        }
+        this._iconOverlayObjects.push(btn1);
+
+        const btn2AtlasInfo = R(this, "GJ_colorBtn_001.png");
+        let btn2;
+        if (btn2AtlasInfo) {
+          btn2 = this.add.image(cx, colorRow2Y, btn2AtlasInfo.atlas, btn2AtlasInfo.frame).setScrollFactor(0).setDepth(104).setTint(rainbowColors[ci]).setScale(0.5).setInteractive();
+        } else {
+          btn2 = this.add.rectangle(cx, colorRow2Y, colorBtnSize, colorBtnSize, rainbowColors[ci]).setScrollFactor(0).setDepth(104).setInteractive();
+        }
+        this._iconOverlayObjects.push(btn2);
+
+        ((color, b1, b2) => {
+          b1.on("pointerover", () => b1.setAlpha(0.7));
+          b1.on("pointerout",  () => b1.setAlpha(1));
+          b1.on("pointerup",   () => {
+            window.mainColor = color;
+            localStorage.setItem("iconMainColor", hexadecimalToHex(color));
+            if (this._player) {
+              if (this._player._playerSpriteLayer) this._player._playerSpriteLayer.sprite.setTint(color);
+              if (this._player._shipSpriteLayer)   this._player._shipSpriteLayer.sprite.setTint(color);
+              if (this._player._ballSpriteLayer)   this._player._ballSpriteLayer.sprite.setTint(color);
+              if (this._player._waveSpriteLayer)   this._player._waveSpriteLayer.sprite.setTint(color);
+              if (this._player._particleEmitter)   this._player._particleEmitter.tint = color;
+            }
+            selectedIcon.setTint(color);
+          });
+
+          b2.on("pointerover", () => b2.setAlpha(0.7));
+          b2.on("pointerout",  () => b2.setAlpha(1));
+          b2.on("pointerup",   () => {
+            window.secondaryColor = color;
+            localStorage.setItem("iconSecondaryColor", hexadecimalToHex(color));
+            if (this._player) {
+              if (this._player._playerGlowLayer    && this._player._playerGlowLayer.sprite)    this._player._playerGlowLayer.sprite.setTint(color);
+              if (this._player._playerOverlayLayer && this._player._playerOverlayLayer.sprite) this._player._playerOverlayLayer.sprite.setTint(color);
+              if (this._player._shipGlowLayer      && this._player._shipGlowLayer.sprite)      this._player._shipGlowLayer.sprite.setTint(color);
+              if (this._player._shipOverlayLayer   && this._player._shipOverlayLayer.sprite)   this._player._shipOverlayLayer.sprite.setTint(color);
+              if (this._player._ballGlowLayer      && this._player._ballGlowLayer.sprite)      this._player._ballGlowLayer.sprite.setTint(color);
+              if (this._player._ballOverlayLayer   && this._player._ballOverlayLayer.sprite)   this._player._ballOverlayLayer.sprite.setTint(color);
+              if (this._player._waveGlowLayer      && this._player._waveGlowLayer.sprite)      this._player._waveGlowLayer.sprite.setTint(color);
+              if (this._player._waveOverlayLayer   && this._player._waveOverlayLayer.sprite)   this._player._waveOverlayLayer.sprite.setTint(color);
+              if (this._player._streak)             this._player._streak._color = color;
+            }
+                selectedIconExtra.setTint(window.secondaryColor);
+                _refreshPreview(currentTab, _getPreviewFrame(currentTab));
+          });
+        })(rainbowColors[ci], btn1, btn2);
+      }
+
+      const previewY = lineY - 35;
+      const selectedIconExtra = this.add.image(sw / 2, previewY, _iconAtlas[startTab], null).setScrollFactor(0).setDepth(102).setVisible(false);
+      const selectedIcon = this.add.image(sw / 2, previewY, _iconAtlas[startTab], null).setScrollFactor(0).setDepth(103);
+
+      const _getPreviewFrame = (tab) => {
+        const prop   = _iconWindowProps[tab];
+        const frames = _iconFrameSets[tab];
+        const match  = frames.find(f => f.replace("_001.png", "") === window[prop]);
+        return match || frames[0];
+      };
+
+      const _refreshPreview = (tab, frame) => {
+        selectedIcon.setTexture(_iconAtlas[tab], frame);
+        const s = Math.min(80 / (selectedIcon.width || 80), 80 / (selectedIcon.height || 80)) * 0.85;
+        selectedIcon.setScale(s);
+        selectedIcon.setTint(window.mainColor);
+        const extraFrame = frame.replace("_001.png", "_2_001.png");
+        const extraInfo = R(this, extraFrame);
+        if (extraInfo) {
+          selectedIconExtra.setTexture(extraInfo.atlas, extraInfo.frame).setVisible(true).setScale(s).setTint(window.secondaryColor);
+        } else {
+          selectedIconExtra.setVisible(false);
+        }
+      };
+
+      _refreshPreview(startTab, _getPreviewFrame(startTab));
+      this._iconOverlayObjects.push(selectedIconExtra, selectedIcon);
+
+      const tabBtnY = containerY - 40;
+      const tabKeys = ["icon", "ship", "ball"];
+      const tabOffsets     = [-109,  0,    109  ];
+      const tabRotations   = { icon: -Math.PI/2, ship: 0,  ball: -Math.PI/2 };
+      const tabFlipXStates = { icon: true,       ship: false, ball: true    };
+      const tabBtnSprites  = {};
+
+      const _switchTab = (tab) => {
+        for (const k of tabKeys) {
+          if (tabBtnSprites[k]) {
+            tabBtnSprites[k].setTexture("GJ_GameSheet03",
+              k === tab ? _tabBtnFrames[k].on : _tabBtnFrames[k].off);
+          }
+        }
+        _refreshPreview(tab, _getPreviewFrame(tab));
+        _buildGrid(tab);
+      };
+
+      tabKeys.forEach((tab, i) => {
+        const isActive = tab === startTab;
+        const btn = this.add.image(sw / 2 + tabOffsets[i], tabBtnY, "GJ_GameSheet03",
+            isActive ? _tabBtnFrames[tab].on : _tabBtnFrames[tab].off)
+          .setScrollFactor(0).setDepth(104).setScale(0.75)
+          .setRotation(tabRotations[tab]).setFlipX(tabFlipXStates[tab])
+          .setInteractive();
+        tabBtnSprites[tab] = btn;
+        this._iconOverlayObjects.push(btn);
+        
+        this._makeBouncyButton(btn, 0.75, () => _switchTab(tab));
       });
-      this._startGame();
-      this._levelLabel.setVisible(false)
-      this._leftBtn.setVisible(false)
-      this._rightBtn.setVisible(false)
-      this._percentageLabel.setVisible(true)
-      this._percentageLabel.setDepth(9999);
-    }, () => this._menuActive && !this._playBtnPressed);
+
+      this._iconGridObjects = [];
+
+      const selLabel = this.add.image(0, 0, "GJ_GameSheet03", "GJ_select_001.png").setScrollFactor(0).setDepth(106).setOrigin(0.5, 0.5).setVisible(false);
+      this._iconOverlayObjects.push(selLabel);
+
+      const iconsPerPage = cols * rows;
+      let currentPage = 0;
+      let _currentTab = startTab;
+
+      const arrowY = containerY + containerHeight / 2;
+      const arrowMargin = 54;
+
+      const prevArrow = this.add.image(containerX - arrowMargin, arrowY, "GJ_GameSheet03", "GJ_arrow_01_001.png")
+        .setScrollFactor(0).setDepth(106).setScale(0.8).setFlipX(false).setInteractive();
+      const nextArrow = this.add.image(containerX + containerWidth + arrowMargin, arrowY, "GJ_GameSheet03", "GJ_arrow_01_001.png")
+        .setScrollFactor(0).setDepth(106).setScale(0.8).setInteractive().setFlipX(true);
+
+      //bouncy buttons for arrows
+      const _togglePage = () => {
+        currentPage = currentPage === 0 ? 1 : 0;
+        _updateNavDots(currentPage);
+        _buildGrid(_currentTab, currentPage);
+      };
+
+      [prevArrow, nextArrow].forEach(arrow => {
+        this._makeBouncyButton(arrow, 0.8, _togglePage);
+      });
+
+      this._iconOverlayObjects.push(prevArrow, nextArrow);
+
+      const _buildGrid = (tab, page = 0) => {
+        for (const o of this._iconGridObjects) {
+          if (o && o.destroy) o.destroy();
+        }
+        this._iconGridObjects = [];
+        selLabel.setVisible(false);
+
+        const allFrames = _iconFrameSets[tab];
+        const frames = allFrames.slice(page * iconsPerPage, (page + 1) * iconsPerPage);
+        const atlas  = _iconAtlas[tab];
+        const prop   = _iconWindowProps[tab];
+
+        frames.forEach((frame, idx) => {
+          const col = idx % cols;
+          const row = Math.floor(idx / cols);
+          const ix  = startX + col * (iconSize + padding);
+          const iy  = startY + row * (iconSize + padding);
+
+          const iconContainer = this.add.container(ix, iy).setScrollFactor(0).setDepth(104).setSize(iconSize, iconSize).setInteractive();
+
+          const iconImg = this.add.image(0, 0, atlas, frame).setTint(0xAFAFAF); 
+          const origScale = Math.min(
+            iconSize / (iconImg.width  || iconSize),
+            iconSize / (iconImg.height || iconSize)
+          ) * 0.7;
+          iconImg.setScale(origScale);
+          
+          iconContainer.add(iconImg);
+
+          const extraFrame = frame.replace("_001.png", "_2_001.png");
+          const extraInfo = R(this, extraFrame);
+          let extraImg = null;
+          if (extraInfo) {
+            extraImg = this.add.image(0, 0, extraInfo.atlas, extraInfo.frame).setScale(origScale);
+            iconContainer.add(extraImg);
+          }
+
+          this._iconGridObjects.push(iconContainer);
+
+          ((capturedFrame, capturedContainer) => {
+            this._makeBouncyButton(capturedContainer, 1, () => {
+              if (!this._iconOverlay) return;
+
+              selLabel.setPosition(capturedContainer.x, capturedContainer.y).setScale(0.75).setVisible(true);
+
+              window[prop] = capturedFrame.replace("_001.png", "");
+              localStorage.setItem("icon" + prop.charAt(0).toUpperCase() + prop.slice(1), window[prop]);
+
+              if (tab === "icon" && this._player) {
+                const layerMap = [
+                  { lp: "_playerSpriteLayer",  suffix: "_001.png",       tint: window.mainColor      },
+                  { lp: "_playerGlowLayer",    suffix: "_glow_001.png",  tint: window.secondaryColor },
+                  { lp: "_playerOverlayLayer", suffix: "_2_001.png",     tint: window.secondaryColor },
+                  { lp: "_playerExtraLayer",   suffix: "_extra_001.png", tint: window.mainColor      },
+                ];
+                for (const { lp, suffix, tint } of layerMap) {
+                  const layer = this._player[lp];
+                  if (!layer || !layer.sprite) continue;
+                  const found = R(this, `${window.currentPlayer}${suffix}`);
+                  if (found) {
+                    layer.sprite.setTexture(found.atlas, found.frame);
+                    if (tint !== null) layer.sprite.setTint(tint);
+                  }
+                }
+              }
+              if (tab === "ship" && this._player) {
+                const layerMap = [
+                  { lp: "_shipSpriteLayer",  suffix: "_001.png",       tint: window.mainColor      },
+                  { lp: "_shipGlowLayer",    suffix: "_glow_001.png",  tint: window.secondaryColor },
+                  { lp: "_shipOverlayLayer", suffix: "_2_001.png",     tint: window.secondaryColor },
+                  { lp: "_shipExtraLayer",   suffix: "_2_001.png",     tint: window.secondaryColor },
+                ];
+                for (const { lp, suffix, tint } of layerMap) {
+                  const layer = this._player[lp];
+                  if (!layer || !layer.sprite) continue;
+                  const found = R(this, `${window.currentShip}${suffix}`);
+                  if (found) {
+                    layer.sprite.setTexture(found.atlas, found.frame);
+                    if (tint !== null) layer.sprite.setTint(tint);
+                  }
+                }
+              }
+              if (tab === "ball" && this._player) {
+                const layerMap = [
+                  { lp: "_ballSpriteLayer",  suffix: "_001.png",      tint: window.mainColor      },
+                  { lp: "_ballGlowLayer",    suffix: "_glow_001.png", tint: window.secondaryColor },
+                  { lp: "_ballOverlayLayer", suffix: "_2_001.png",    tint: window.secondaryColor },
+                ];
+                for (const { lp, suffix, tint } of layerMap) {
+                  const layer = this._player[lp];
+                  if (!layer || !layer.sprite) continue;
+                  const found = R(this, `${window.currentBall}${suffix}`);
+                  if (found) {
+                    layer.sprite.setTexture(found.atlas, found.frame);
+                    layer.sprite.setTint(tint);
+                  }
+                }
+              }
+
+              _refreshPreview(tab, capturedFrame);
+            });
+          })(frame, iconContainer);
+        });
+      };
+
+
+      const _switchTabOrig = _switchTab;
+      const _switchTabPaged = (tab) => {
+        _currentTab = tab;
+        currentPage = 0;
+        _updateNavDots(0);
+        for (const k of tabKeys) {
+          if (tabBtnSprites[k]) {
+            tabBtnSprites[k].setTexture("GJ_GameSheet03",
+              k === tab ? _tabBtnFrames[k].on : _tabBtnFrames[k].off);
+          }
+        }
+        _refreshPreview(tab, _getPreviewFrame(tab));
+        _buildGrid(tab, 0);
+      };
+      tabKeys.forEach(tab => {
+        const btn = tabBtnSprites[tab];
+        if (btn) {
+          btn.removeAllListeners("pointerup");
+          btn.removeAllListeners("pointerdown");
+          btn.removeAllListeners("pointerout");
+          this._makeBouncyButton(btn, 0.75, () => _switchTabPaged(tab));
+        }
+      });
+
+      _buildGrid(startTab, 0);
+    };
+
+    this._closeIconSelector = (silent = false) => {
+      if (!this._iconOverlay) return;
+      const destroy = () => {
+        if (this._iconGridObjects) {
+          for (const obj of this._iconGridObjects) {
+            if (obj && obj.destroy) obj.destroy();
+          }
+          this._iconGridObjects = null;
+        }
+        if (this._iconOverlayObjects) {
+          for (const obj of this._iconOverlayObjects) {
+            if (obj && obj.destroy) obj.destroy();
+          }
+          this._iconOverlayObjects = null;
+        }
+        this._iconOverlay = null;
+      };
+      if (silent) { destroy(); return; }
+      const sw = screenWidth;
+      const sh = screenHeight;
+      const fadeOut = this.add.graphics().setScrollFactor(0).setDepth(200).setAlpha(0);
+      fadeOut.fillStyle(0x000000, 1);
+      fadeOut.fillRect(0, 0, sw, sh);
+      this.tweens.add({
+        targets: fadeOut, alpha: 1, duration: 150, ease: "Linear",
+        onComplete: () => {
+          destroy();
+          this.tweens.add({ targets: fadeOut, alpha: 0, duration: 150, ease: "Linear", onComplete: () => fadeOut.destroy() });
+        }
+      });
+    };
+    this._closeCreatorMenu = (silent = false) => {
+      if (!this._creatorOverlay) return;
+      const destroy = () => {
+        if (this._creatorOverlayObjects) {
+          for (const obj of this._creatorOverlayObjects) {
+            if (obj && obj.destroy) obj.destroy();
+          }
+          this._creatorOverlayObjects = null;
+        }
+        this._creatorOverlay = null;
+      };
+      if (silent) { destroy(); return; }
+      const sw = screenWidth;
+      const sh = screenHeight;
+      const fadeOut = this.add.graphics().setScrollFactor(0).setDepth(200).setAlpha(0);
+      fadeOut.fillStyle(0x000000, 1);
+      fadeOut.fillRect(0, 0, sw, sh);
+      this.tweens.add({
+        targets: fadeOut, alpha: 1, duration: 150, ease: "Linear",
+        onComplete: () => {
+          destroy();
+          this.tweens.add({ targets: fadeOut, alpha: 0, duration: 150, ease: "Linear", onComplete: () => fadeOut.destroy() });
+        }
+      });
+    };
     this._positionMenuItems();
+    //icon stuff sequel
+    if (this._iconBtn) {
+  this._iconBtn.x = (screenWidth / 2) - this._playBtn.width / 2 - 100 - (this._iconBtn.width * this._iconBtn.scaleX) / 2;
+  this.tweens.killTweensOf(this._iconBtn, "y");
+  this._iconBtn.y = 320;
+  this.tweens.add({
+    targets: this._iconBtn,
+    y: 324,
+    duration: 750,
+    ease: "Quad.InOut",
+    yoyo: true,
+    repeat: -1
+  });
+}
+    // creator stuff the sequel
+    if (this._creatorBtn) {
+  this._creatorBtn.x = (screenWidth / 2) + this._playBtn.width / 2 + 100 + (this._creatorBtn.width * this._creatorBtn.scaleX) / 2;
+  this.tweens.killTweensOf(this._creatorBtn, "y");
+  this._creatorBtn.y = 320;
+  this.tweens.add({
+    targets: this._creatorBtn,
+    y: 324,
+    duration: 750,
+    ease: "Quad.InOut",
+    yoyo: true,
+    repeat: -1
+  });
+}
     this._spaceWasDown = false;
     this._spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this._upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
@@ -3893,12 +4937,27 @@ class xs extends Phaser.Scene {
     this._aKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this._dKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
 
-    this._percentageLabel = this.add.bitmapText(r / 2, 20, "bigFont", "0.00%", 30).setOrigin(0.5, 0.5).setVisible(false);
-    this._pauseBtn = this.add.image(r - 30, 30, "GJ_WebSheet", "GJ_pauseBtn_clean_001.png").setScrollFactor(0).setDepth(30).setAlpha(75 / 255).setVisible(false);
+    this._percentageLabel = this.add.bitmapText(screenWidth / 2, 20, "bigFont", "0.00%", 30).setOrigin(0.5, 0.5).setVisible(false).setDepth(100);
+    this._pauseBtn = this.add.image(screenWidth - 30, 30, "GJ_WebSheet", "GJ_pauseBtn_clean_001.png").setScrollFactor(0).setDepth(30).setAlpha(75 / 255).setVisible(false);
     this._pauseBtn.setInteractive();
     this._expandHitArea(this._pauseBtn, 2);
     this._pauseBtn.on("pointerdown", () => this._pauseGame());
     this._escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this._escKey.on("down", () => {
+    if (this._levelSelectOverlay) {
+      this._closeLevelSelect();
+      return;
+    }
+    if (this._iconOverlay) {
+  this._closeIconSelector();
+  return;
+} });
+this._escKey.on("down", () => {
+    if (this._creatorOverlay) {
+  this._closeCreatorMenu();
+  return;
+}
+    });
     this._escKey.on("down", () => {
       if (this._paused) {
         this._audio.playEffect("quitSound_01");
@@ -3920,12 +4979,12 @@ class xs extends Phaser.Scene {
     this._pauseContainer = null;
     this._sfxVolume = localStorage.getItem("userSfxVol") ?? 1;
     this.input.on("pointerdown", () => {
-      if (!this._menuActive && !this._paused) {
+      if (!this._menuActive && !this._paused && !this._levelSelectOverlay) {
         this._pushButton();
       }
     });
     this.input.on("pointerup", () => {
-      if (!this._menuActive && !this._paused) {
+      if (!this._menuActive && !this._paused && !this._levelSelectOverlay) {
         this._releaseButton();
       }
     });
@@ -3951,38 +5010,504 @@ class xs extends Phaser.Scene {
       this.game.registry.remove("fadeInFromBlack");
       this.cameras.main.fadeIn(400, 0, 0, 0);
     }
-    this._levelLabel = this.add.bitmapText(r - 165, 400, "bigFont", window.currentlevel[1], 30).setOrigin(0.5, 0.5);
+    this._levelLabel = this.add.bitmapText(screenWidth - 565, 30, "bigFont", window.currentlevel[1], 30).setOrigin(0.5, 0.5).setVisible(false);
     this._levelLabel.setScale(Math.min(1, 220 / this._levelLabel.width));
     
-    this._leftBtn = this.add.image(r - 300, 400, "GJ_GameSheet03", "edit_leftBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
-    this._rightBtn = this.add.image(r - 30, 400, "GJ_GameSheet03", "edit_leftBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive();
+    this._leftBtn = this.add.image(screenWidth - 700, 30, "GJ_GameSheet03", "edit_leftBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive().setVisible(false);
+    this._rightBtn = this.add.image(screenWidth - 429, 30, "GJ_GameSheet03", "edit_leftBtn_001.png").setScrollFactor(0).setDepth(30).setInteractive().setVisible(false);
     this._rightBtn.setRotation(Math.PI);
     window.scene = this.scene;
-    window.rightbuttoncallback = function() {
-      let index = window.allLevels.findIndex(l => l[2] === window.currentlevel[2]);
-      index++;
-      if (index >= window.allLevels.length || index < 0) index = 0;
-      window.currentlevel = [...window.allLevels[index]];
-      window.scene.restart();
+    window.rightbuttoncallback = () => {
+      if (this._levelSelectOverlay && this._levelSelectSwitchLevel) {
+        this._levelSelectSwitchLevel(1);
+      }
     };
-    window.leftbuttoncallback = function() {
-      let index = window.allLevels.findIndex(l => l[2] === window.currentlevel[2]);
-      index--;
-      if (index >= window.allLevels.length || index < 0) index = window.allLevels.length-1;
-      window.currentlevel = [...window.allLevels[index]];
-      window.scene.restart();
+    window.leftbuttoncallback = () => {
+      if (this._levelSelectOverlay && this._levelSelectSwitchLevel) {
+        this._levelSelectSwitchLevel(-1);
+      }
     };
     this._makeBouncyButton(this._leftBtn, 1, () => {window.leftbuttoncallback()}, () => this._menuActive);
     this._makeBouncyButton(this._rightBtn, 1, () => {window.rightbuttoncallback()}, () => this._menuActive);
     if (!this._audio.isplaying()) {
       this._audio.startMenuMusic();
     }
+    if (this.game.registry.get("autoStartGame")) {
+      this.game.registry.remove("autoStartGame");
+      this._levelLabel.setVisible(false);
+      this._leftBtn.setVisible(false);
+      this._rightBtn.setVisible(false);
+      this._percentageLabel.setVisible(window.showPercentage);
+      this._startGame();
+    }
   }
+  _parseLevelColors(levelId) {
+    const LEVEL_COLORS = [
+      0x0100f5,0xf902f8,0xf90285,0xfa0102,
+      0xfa8702,0xfcfc06,0x03fb03,0x02fbfb,
+      0x007dff
+    ];
+    
+    let index = 0;
+    if (window.allLevels) {
+      index = window.allLevels.findIndex(l => l[2] === levelId);
+      if (index === -1) index = 0;
+    }
+    
+    const bgHex = LEVEL_COLORS[index % LEVEL_COLORS.length];
+    return { bgHex, groundHex: bgHex };
+  }
+
+  _openLevelSelect() {
+    if (this._levelSelectOverlay) return;
+    const sw = screenWidth;
+    const sh = screenHeight;
+    const cx = sw / 2;
+    const cy = sh / 2;
+
+    let { bgHex, groundHex } = this._parseLevelColors(window.currentlevel[2]);
+
+    const drawOverlay = (gfx, colorHex, isEveryEnd = false) => {
+      gfx.clear();
+      const rRaw = (colorHex >> 16) & 0xff;
+      const gRaw = (colorHex >> 8)  & 0xff;
+      const bRaw =  colorHex        & 0xff;
+      const topMul = isEveryEnd ? 0.30 : 0.65;
+      const botMul = isEveryEnd ? 0.18 : 0.42;
+      const steps = 60;
+      for (let i = 0; i < steps; i++) {
+        const t = i / (steps - 1);
+        const mul = topMul + (botMul - topMul) * t;
+        const r2 = Math.min(255, Math.round(rRaw * mul));
+        const g2 = Math.min(255, Math.round(gRaw * mul));
+        const b2 = Math.min(255, Math.round(bRaw * mul));
+        gfx.fillStyle((r2 << 16) | (g2 << 8) | b2, 1);
+        const y0 = Math.floor(i * sh / steps);
+        gfx.fillRect(0, y0, sw, Math.ceil(sh / steps) + 1);
+      }
+    };
+
+    const isEveryEnd = (levelId) => levelId === "level_99";
+
+    const fadeIn = this.add.graphics().setScrollFactor(0).setDepth(200);
+    fadeIn.fillStyle(0x000000, 1);
+    fadeIn.fillRect(0, 0, sw, sh);
+    this.tweens.add({ targets: fadeIn, alpha: 0, duration: 300, ease: "Linear", onComplete: () => fadeIn.destroy() });
+
+    const overlay = this.add.graphics().setScrollFactor(0).setDepth(150);
+    drawOverlay(overlay, bgHex, isEveryEnd(window.currentlevel[2]));
+    this._levelSelectOverlay = overlay;
+
+    const tableBottom = this.add.image(cx, -24, "GJ_GameSheet03", "GJ_table_bottom_001.png")
+      .setScrollFactor(0).setDepth(152).setOrigin(0.5, 0);
+
+    const groundY = sh + 175;
+    const groundId = (window._groundId || "01");
+    const groundFrame = this.textures.getFrame("groundSquare_" + groundId + "_001.png");
+    const tileW = groundFrame ? groundFrame.width : 1012;
+    const numTiles = Math.ceil(sw / tileW) + 2;
+    const groundTintHex = (colorHex) => {
+      const r = Math.round(((colorHex >> 16) & 0xff) * 0.45);
+      const g = Math.round(((colorHex >> 8)  & 0xff) * 0.45);
+      const b = Math.round(( colorHex        & 0xff) * 0.45);
+      return (r << 16) | (g << 8) | b;
+    };
+
+    const staticGroundTiles = [];
+    for (let gi = 0; gi < numTiles; gi++) {
+      const gt = this.add.image(gi * tileW, groundY, "groundSquare_" + groundId + "_001.png")
+        .setScrollFactor(0).setDepth(152).setOrigin(0, 1).setTint(groundTintHex(groundHex));
+      staticGroundTiles.push(gt);
+    }
+    const floorLineFrame = this.textures.getFrame("GJ_WebSheet", "floorLine_01_001.png");
+    const floorLineW = floorLineFrame ? floorLineFrame.width : 888;
+    const floorLineScale = sw / floorLineW;
+    const groundTileH = groundFrame ? groundFrame.height : 80;
+    const staticFloorLine = this.add.image(cx, groundY - groundTileH, "GJ_WebSheet", "floorLine_01_001.png")
+      .setScrollFactor(0).setDepth(153).setOrigin(0.5, 0.5).setScale(floorLineScale, 1).setBlendMode(S);
+
+    const cornerBL = this.add.image(0,  sh, "GJ_GameSheet03", "GJ_sideArt_001.png").setScrollFactor(0).setDepth(152).setOrigin(1, 1).setFlipY(true).setAngle(90);
+    const cornerBR = this.add.image(sw, sh, "GJ_GameSheet03", "GJ_sideArt_001.png").setScrollFactor(0).setDepth(152).setOrigin(1, 0).setFlipY(false).setAngle(90);
+
+    const backBtn = this.add.image(50, 48, "GJ_GameSheet03", "GJ_arrow_01_001.png")
+      .setScrollFactor(0).setDepth(154).setFlipX(true).setScale(1, -1).setRotation(Math.PI).setInteractive();
+    backBtn.on("pointerdown", () => {
+      backBtn._pressed = true;
+      this.tweens.killTweensOf(backBtn);
+      this.tweens.add({ targets: backBtn, scaleX: 1.26, scaleY: -1.26, duration: 300, ease: "Bounce.Out" });
+    });
+    backBtn.on("pointerout", () => {
+      if (backBtn._pressed) {
+        backBtn._pressed = false;
+        this.tweens.killTweensOf(backBtn);
+        this.tweens.add({ targets: backBtn, scaleX: 1, scaleY: -1, duration: 400, ease: "Bounce.Out" });
+      }
+    });
+    backBtn.on("pointerup", () => {
+      if (backBtn._pressed) {
+        backBtn._pressed = false;
+        this.tweens.killTweensOf(backBtn);
+        backBtn.setScale(1, -1);
+        this._closeLevelSelect();
+      }
+    });
+
+    const infoBtn = this.add.image(sw - 40, 40, "GJ_GameSheet03", "GJ_infoIcon_001.png")
+      .setScrollFactor(0).setDepth(154).setRotation(Math.PI / 2).setInteractive();
+
+    const arrowL = this.add.image(55, cy - 25, "GJ_GameSheet03", "navArrowBtn_001.png")
+      .setScrollFactor(0).setDepth(154).setScale(1.1).setFlipX(true).setInteractive();
+    const arrowR = this.add.image(sw - 55, cy - 25, "GJ_GameSheet03", "navArrowBtn_001.png")
+      .setScrollFactor(0).setDepth(154).setScale(1.1).setFlipX(false).setInteractive();
+
+    const allLevels = window.allLevels || [];
+    const dotY = sh - 36;
+    const maxDots = Math.min(allLevels.length, 28);
+    const dotSpacing = 27;
+    const dotStartX = cx - (maxDots - 1) * dotSpacing / 2;
+    const dotObjs = [];
+    const refreshDots = () => {
+      for (const d of dotObjs) d.destroy();
+      dotObjs.length = 0;
+      const idx = allLevels.findIndex(l => l[2] === window.currentlevel[2]);
+      for (let di = 0; di < maxDots; di++) {
+        const active = di === idx;
+        const d = this.add.graphics().setScrollFactor(0).setDepth(153);
+        d.fillStyle(0xffffff, active ? 1 : 0.3);
+        d.fillCircle(dotStartX + di * dotSpacing, dotY, 7);
+        dotObjs.push(d);
+      }
+    };
+    refreshDots();
+
+    const cardW = Math.min(700, sw - 180);
+    const cardH = 180;
+    const cardX = cx;
+    const cardY = cy - 100;
+
+    const cardSlideContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(152);
+    const cardBounceContainer = this.add.container(cardX, cardY).setScrollFactor(0).setDepth(0);
+    cardSlideContainer.add(cardBounceContainer);
+    const cardContainer = cardSlideContainer;
+
+    const cardBg = this.add.graphics();
+    const drawCardBg = (colorHex, dark = false) => {
+      cardBg.clear();
+      const mul = dark ? 0.10 : 0.22;
+      const r = Math.round(((colorHex >> 16) & 0xff) * mul);
+      const g = Math.round(((colorHex >> 8)  & 0xff) * mul);
+      const b = Math.round(( colorHex        & 0xff) * mul);
+      cardBg.fillStyle((r << 16) | (g << 8) | b, 0.92);
+      cardBg.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 14);
+    };
+    drawCardBg(bgHex, isEveryEnd(window.currentlevel[2]));
+    cardBounceContainer.add(cardBg);
+
+    const cardHit = this.add.zone(cardX, cardY, cardW, cardH)
+      .setScrollFactor(0).setDepth(156).setInteractive();
+    cardHit.on("pointerdown", () => {
+      cardHit._pressed = true;
+      this.tweens.killTweensOf(cardBounceContainer, "scale");
+      this.tweens.add({ targets: cardBounceContainer, scale: 1.26, duration: 300, ease: "Bounce.Out" });
+    });
+    cardHit.on("pointerout", () => {
+      if (cardHit._pressed) {
+        cardHit._pressed = false;
+        this.tweens.killTweensOf(cardBounceContainer, "scale");
+        this.tweens.add({ targets: cardBounceContainer, scale: 1, duration: 400, ease: "Bounce.Out" });
+      }
+    });
+    cardHit.on("pointerup", () => {
+      if (cardHit._pressed) {
+        cardHit._pressed = false;
+        this.tweens.killTweensOf(cardBounceContainer, "scale");
+        cardBounceContainer.setScale(1);
+        this._audio.playEffect("playSound_01", { volume: 1 });
+        this._closeLevelSelect(true);
+        this._audio.stopMusic();
+        this.game.registry.set("autoStartGame", true);
+        this.scene.restart();
+      }
+    });
+
+    const cardContentObjs = [];
+    const buildCardContent = () => {
+      for (const o of cardContentObjs) { this.tweens.killTweensOf(o); o.destroy(); }
+      cardContentObjs.length = 0;
+
+      const lvl = window.currentlevel;
+      const levelId = lvl[2] || "level_1";
+
+      const levelDifficultyMap = {
+        "level_1":         "diffIcon_01_btn_001",
+        "level_2":         "diffIcon_01_btn_001",
+        "level_3":         "diffIcon_02_btn_001",
+        "level_4":         "diffIcon_02_btn_001",
+        "level_5":         "diffIcon_03_btn_001",
+        "level_6":         "diffIcon_03_btn_001",
+        "level_7":         "diffIcon_04_btn_001",
+        "level_8":         "diffIcon_04_btn_001",
+        "level_9":         "diffIcon_04_btn_001",
+        "level_10":        "diffIcon_05_btn_001",
+        "level_11":        "diffIcon_05_btn_001",
+        "level_12":        "diffIcon_05_btn_001",
+        "level_13":        "diffIcon_05_btn_001",
+        "level_14":        "diffIcon_06_btn_001",
+        "level_15":        "diffIcon_05_btn_001",
+        "level_16":        "diffIcon_05_btn_001",
+        "level_17":        "diffIcon_04_btn_001",
+        "level_18":        "diffIcon_06_btn_001",
+        "level_19":        "diffIcon_04_btn_001",
+        "level_20":        "diffIcon_06_btn_001",
+        "level_21":        "diffIcon_05_btn_001",
+        "level_22":        "diffIcon_05_btn_001",
+        "level_99":        "diffIcon_10_btn_001",
+        "level_100":       "diffIcon_10_btn_001",
+        "level_137409445": "diffIcon_00_btn_001",
+        "level_5703070":   "diffIcon_07_btn_001",
+        "level_137677336": "diffIcon_00_btn_001",
+        "level_116489424": "diffIcon_00_btn_001",
+      };
+      const diffIconKey = levelDifficultyMap[levelId] || "diffIcon_05_btn_001";
+      const diffFrame = diffIconKey + ".png";
+      const iconX = cardX - cardW / 2 + 52;
+      const isHardDemon = diffIconKey === "diffIcon_06_btn_001";
+      const iconRotation = isHardDemon ? Math.PI / 2 : 0;
+      const demonIcon = this.add.image(iconX - cardX, 0, "GJ_GameSheet03", diffFrame)
+        .setScrollFactor(0).setDepth(155).setScale(1).setOrigin(0.5, 0.5).setRotation(iconRotation).setFlipY(isHardDemon);
+      cardContentObjs.push(demonIcon);
+      cardBounceContainer.add(demonIcon);
+
+      const maxIconH = cardH - 16;
+      const maxIconW = 80;
+      const iconFrame = this.textures.getFrame("GJ_GameSheet03", diffFrame);
+      let finalIconScale = 1;
+      if (iconFrame) {
+        const scaleForH = maxIconH / iconFrame.height;
+        let scaleForW = maxIconW / iconFrame.width;
+        finalIconScale = Math.min(1, scaleForH, scaleForW);
+        demonIcon.setScale(finalIconScale);
+      }
+      let iconDisplayW = (iconFrame ? iconFrame.width : 80) * finalIconScale;
+      const iconDisplayH = (iconFrame ? iconFrame.height : 80) * finalIconScale;
+
+      const nameLabel = this.add.bitmapText(0, 0, "bigFont", lvl[1], 50)
+        .setScrollFactor(0).setDepth(155).setOrigin(0, 0.5);
+
+      const gap = 25;
+      const naturalGroupW = iconDisplayW + gap + nameLabel.width;
+      const naturalGroupH = Math.max(iconDisplayH, nameLabel.height);
+
+      const cardPad = 16;
+      const maxGroupW = cardW - cardPad * 2;
+      const maxGroupH = cardH - cardPad * 2;
+      const groupScale = Math.min(1, maxGroupW / naturalGroupW, maxGroupH / naturalGroupH);
+
+      const scaledIconW  = iconDisplayW  * groupScale;
+      const scaledLabelW = nameLabel.width * groupScale;
+      const scaledGap = gap * groupScale;
+      const totalW = scaledIconW + scaledGap + scaledLabelW;
+
+      const groupStartX = cardX - totalW / 2;
+
+      demonIcon.setScale(finalIconScale * groupScale);
+      demonIcon.setPosition(groupStartX + scaledIconW / 2 - cardX, 0);
+
+      nameLabel.setScale(groupScale);
+      nameLabel.setPosition(groupStartX + scaledIconW + scaledGap - cardX, 0);
+
+      cardContentObjs.push(nameLabel);
+      cardBounceContainer.add(nameLabel);
+    };
+
+    const barAreaY = cardY + cardH / 2 + 100;
+    const barW2 = Math.min(600, sw - 200);
+    const barH2 = 36;
+    const barX0 = cx - barW2 / 2;
+
+    let barObjs = [];
+    const buildBar = () => {
+      for (const o of barObjs) { this.tweens.killTweensOf(o); o.destroy(); }
+      barObjs.length = 0;
+
+      const bestNormal = parseFloat(localStorage.getItem("bestPercent_" + (window.currentlevel[2] || "level_1")) || "0");
+
+      const modeLabel = this.add.bitmapText(cx, barAreaY - 40, "bigFont", "Normal Mode", 30)
+        .setScrollFactor(0).setDepth(155).setOrigin(0.5, 0.5);
+      barObjs.push(modeLabel);
+      cardContainer.add(modeLabel);
+
+      const barBg = this.add.graphics().setScrollFactor(0).setDepth(154);
+      barBg.fillStyle(0x000000, 0.6);
+      barBg.fillRoundedRect(barX0, barAreaY - barH2 / 2, barW2, barH2, barH2 / 2);
+      barObjs.push(barBg);
+      cardContainer.add(barBg);
+
+      const padding = 3;
+      const innerH2 = barH2 - padding * 2;
+      const innerW2 = barW2 - padding * 2;
+      const innerRadius = innerH2 / 2;
+      const fillW = Math.max(innerH2, innerW2 * bestNormal / 100);
+
+      console.log({ bestNormal, fillW });
+    
+    if(bestNormal > 0) {
+      const barFg = this.add.graphics().setScrollFactor(0).setDepth(155);
+      barFg.fillStyle(0x00FF00, 1);
+      
+      const rightR = (bestNormal >= 100) ? innerRadius : 0;
+      
+      barFg.fillRoundedRect(barX0 + padding, barAreaY - barH2 / 2 + padding, fillW, innerH2, {
+        tl: innerRadius,
+        bl: innerRadius,
+        tr: rightR,
+        br: rightR
+      });
+      
+      barObjs.push(barFg);
+        cardContainer.add(barFg);
+      }
+
+      const pctLabel = this.add.bitmapText(cx, barAreaY, "bigFont", Math.round(bestNormal) + "%", 22)
+        .setScrollFactor(0).setDepth(156).setOrigin(0.5, 0.5);
+      barObjs.push(pctLabel);
+      cardContainer.add(pctLabel);
+    };
+
+    buildCardContent();
+    buildBar();
+
+    let _currentAnimUpdate = null;
+
+    const switchLevel = (dir) => {
+      if (!window.allLevels || window.allLevels.length === 0) return;
+
+      if (_currentAnimUpdate) {
+        this.events.off("preupdate", _currentAnimUpdate);
+        _currentAnimUpdate = null;
+        cardContainer.x = 0;
+      }
+
+      let idx = window.allLevels.findIndex(l => l[2] === window.currentlevel[2]);
+      idx = (idx + dir + window.allLevels.length) % window.allLevels.length;
+      window.currentlevel = [...window.allLevels[idx]];
+
+      const newColors = this._parseLevelColors(window.currentlevel[2]);
+      const dark = isEveryEnd(window.currentlevel[2]);
+
+      const slideDist = cardW-200;
+      const slideOutTarget = -dir * slideDist;
+      const slideInStart = dir * slideDist;
+
+      this.tweens.killTweensOf(cardContainer);
+
+      let state = "out";
+      let currentX = cardContainer.x;
+      let vel = 0;
+
+      const scrollAnimUpdate = (time,delta) => {
+        const dt = Math.min(delta / 1000, 0.05);
+
+        if (state === "out") {
+          const speed = slideDist * 14; 
+          currentX += (-dir) * speed * dt;
+          
+          if ((dir > 0 && currentX <= slideOutTarget) || (dir < 0 && currentX >= slideOutTarget)) {
+            for (const o of cardContentObjs) {
+              cardBounceContainer.remove(o, false);
+              o.destroy();
+            }
+            for (const o of barObjs) {
+              cardSlideContainer.remove(o, false);
+              o.destroy();
+            }
+            cardContentObjs.length = 0;
+            barObjs.length = 0;
+
+            drawCardBg(newColors.bgHex, dark);
+            buildCardContent();
+            buildBar();
+
+            drawOverlay(overlay, newColors.bgHex, dark);
+            for (const gt of staticGroundTiles) gt.setTint(groundTintHex(newColors.groundHex));
+            refreshDots();
+
+            state = "in";
+            currentX = slideInStart;
+            vel = (-dir) * slideDist * 6;
+          }
+        } else if (state === "in") {
+          const tension = 300;
+          const friction = 15;
+          
+          const force = -tension * (currentX - 0) - friction * vel;
+          vel += force * dt;
+          currentX += vel * dt;
+
+          if (Math.abs(currentX) < 1 && Math.abs(vel) < 15) {
+            currentX = 0;
+            this.events.off("preupdate", scrollAnimUpdate);
+            if (_currentAnimUpdate === scrollAnimUpdate) {
+              _currentAnimUpdate = null;
+            }
+          }
+        }
+        cardContainer.x = currentX;
+      };
+
+      _currentAnimUpdate = scrollAnimUpdate;
+      this.events.on("preupdate", scrollAnimUpdate);
+    };
+
+    this._makeBouncyButton(arrowL, 1.1, () => { switchLevel(-1); });
+    this._makeBouncyButton(arrowR, 1.1, () => { switchLevel(1); });
+
+    const inputBlocker = this.add.zone(cx, cy, sw, sh)
+      .setScrollFactor(0).setDepth(151).setInteractive();
+    this._levelSelectStaticObjs = [overlay, inputBlocker, tableBottom, ...staticGroundTiles, staticFloorLine, cornerBL, cornerBR, backBtn, infoBtn, arrowL, arrowR, cardSlideContainer, cardHit];
+    this._levelSelectSwitchLevel = switchLevel;
+    this._levelSelectDotObjs = dotObjs;
+    this._levelSelectCardContent = cardContentObjs;
+    this._levelSelectBarObjs = barObjs;
+  }
+
+  _closeLevelSelect(silent = false) {
+    if (!this._levelSelectOverlay) return;
+    const destroy = () => {
+      const all = [
+        ...(this._levelSelectStaticObjs || []),
+        ...(this._levelSelectDotObjs || []),
+        ...(this._levelSelectCardContent || []),
+        ...(this._levelSelectBarObjs || []),
+      ];
+      for (const o of all) { if (o && o.destroy) { this.tweens.killTweensOf(o); o.destroy(); } }
+      this._levelSelectOverlay = null;
+      this._levelSelectStaticObjs = null;
+      this._levelSelectDotObjs = null;
+      this._levelSelectCardContent = null;
+      this._levelSelectBarObjs = null;
+      this._levelSelectSwitchLevel = null;
+    };
+    if (silent) { destroy(); return; }
+    const sw = screenWidth;
+    const sh = screenHeight;
+    const fadeOut = this.add.graphics().setScrollFactor(0).setDepth(200).setAlpha(0);
+    fadeOut.fillStyle(0x000000, 1);
+    fadeOut.fillRect(0, 0, sw, sh);
+    this.tweens.add({
+      targets: fadeOut, alpha: 1, duration: 150, ease: "Linear",
+      onComplete: () => {
+        destroy();
+        this.tweens.add({ targets: fadeOut, alpha: 0, duration: 150, ease: "Linear", onComplete: () => fadeOut.destroy() });
+      }
+    });
+  }
+
   _buildHUD() {
     this._attemptsLabel = this.add.bitmapText(0, 0, "bigFont", "Attempt 1", 65).setOrigin(0.5, 0.5).setVisible(false);
     this._level.topContainer.add(this._attemptsLabel);
     this._positionAttemptsLabel();
-    this._fpsText = this.add.text(r - 20, 10, "", {
+    this._fpsText = this.add.text(screenWidth - 20, 10, "", {
       fontSize: "28px",
       fill: "#ff0000",
       fontFamily: "Arial"
@@ -4034,14 +5559,39 @@ class xs extends Phaser.Scene {
         this._pauseContainer.destroy();
         this._pauseContainer = null;
       }
+      this._noclipCheckbox = null;
+      this._showHitboxesCheckbox = null;
     }
   }
+  _createPauseToggleButton(_0x5376fd, _0x3b6200, _0x2b25c8, _0xe203c3, _0x268e2b, _0x2d04c4) {
+    const _0x4864cc = this.add.container(_0x3b6200, _0x2b25c8);
+    const _0x3ae5dd = this.add.image(0, 0, "GJ_GameSheet03", _0x268e2b ? "GJ_checkOn_001.png" : "GJ_checkOff_001.png").setScale(0.7).setInteractive();
+    const _0x15c0df = this.add.bitmapText(_0x3ae5dd.width * 0.7 / 2 + 12, 0, "bigFont", _0xe203c3, 32).setOrigin(0, 0.5);
+    _0x4864cc.add([_0x3ae5dd, _0x15c0df]);
+    _0x5376fd.add(_0x4864cc);
+    const _0x232e51 = _0x1dce15 => {
+      _0x3ae5dd.setTexture("GJ_GameSheet03", _0x1dce15 ? "GJ_checkOn_001.png" : "GJ_checkOff_001.png");
+      this._expandHitArea(_0x3ae5dd, 2);
+      _0x2d04c4(_0x1dce15);
+    };
+    this._expandHitArea(_0x3ae5dd, 2);
+    this._makeBouncyButton(_0x3ae5dd, 0.7, () => {
+      _0x232e51(_0x3ae5dd.frame.name === "GJ_checkOff_001.png");
+    }, () => this._paused && !!this._pauseContainer);
+    _0x15c0df.setInteractive();
+    _0x15c0df.on("pointerdown", () => {
+      if (this._paused && this._pauseContainer) {
+        _0x232e51(_0x3ae5dd.frame.name === "GJ_checkOff_001.png");
+      }
+    });
+    return _0x4864cc;
+  }
   _buildPauseOverlay() {
-    const _0x13af33 = r / 2;
+    const _0x13af33 = screenWidth / 2;
     const _0xf70e04 = 320;
-    const _0x4eb71b = r - 40;
+    const _0x4eb71b = screenWidth - 40;
     this._pauseContainer = this.add.container(0, 0).setScrollFactor(0).setDepth(100);
-    const _0x505665 = this.add.rectangle(_0x13af33, _0xf70e04, r, n, 0, 75 / 255);
+    const _0x505665 = this.add.rectangle(_0x13af33, _0xf70e04, screenWidth, screenHeight, 0, 75 / 255);
     _0x505665.setInteractive();
     this._pauseContainer.add(_0x505665);
     const _0x103191 = this.textures.get("square04_001").source[0].width * 0.325;
@@ -4142,16 +5692,30 @@ class xs extends Phaser.Scene {
       this._sfxVolume = _0x3224fb;
       localStorage.setItem("userSfxVol", _0x3224fb);
     });
+
+    this._noclipCheckbox = this._createPauseToggleButton(this._pauseContainer, _0x13af33 - 330, 570, "Noclip", window.noClip, value => {
+      window.noClip = value;
+    });
+
+    this._showHitboxesCheckbox = this._createPauseToggleButton(this._pauseContainer, _0x13af33 - 120, 570, "Hitboxes", window.showHitboxes, value => {
+      window.showHitboxes = value;
+      this._player.setShowHitboxes(value);
+    });
+
+    this._showPercentageCheckbox = this._createPauseToggleButton(this._pauseContainer, _0x13af33 + 130, 570, "Percentage", window.showPercentage, value => {
+      window.showPercentage = value;
+      this._percentageLabel.setVisible(value);
+    });
   }
   _buildInfoPopup() {
     if (this._infoPopup) {
       return;
     }
-    const xPos = r / 2;
+    const xPos = screenWidth / 2;
     const _0x4c3182 = 320;
     const _0xe2830b = 336;
     this._infoPopup = this.add.container(0, 0).setScrollFactor(0).setDepth(200);
-    const _0x249eb7 = this.add.rectangle(xPos, _0x4c3182, r, n, 0, 100 / 255);
+    const _0x249eb7 = this.add.rectangle(xPos, _0x4c3182, screenWidth, screenHeight, 0, 100 / 255);
     _0x249eb7.setInteractive();
     this._infoPopup.add(_0x249eb7);
     const _0x14e46f = this.textures.get("GJ_square02").source[0].width * 0.325;
@@ -4168,11 +5732,17 @@ class xs extends Phaser.Scene {
     const _0x22e4c7 = this.add.bitmapText(xPos, yPos, "goldFont", "Made by RobTop Games", 40).setOrigin(0.5, 0.5).setScale(0.6);
     this._infoPopup.add(_0x22e4c7);
     yPos += 60;
-    const _0x3cdf70a = this.add.bitmapText(xPos, yPos, "goldFont", "Modded by: AntiMatter, breadbb", 40).setOrigin(0.5, 0.5).setScale(0.6);
+    const _0x3cdf70a = this.add.bitmapText(xPos, yPos, "goldFont", "Modded by:", 40).setOrigin(0.5, 0.5).setScale(0.6);
     this._infoPopup.add(_0x3cdf70a);
+    yPos += 40;
+    const _0x3cdf70c = this.add.bitmapText(xPos, yPos, "goldFont", "AntiMatter, breadbb, bog, aloaf", 40).setOrigin(0.5, 0.5).setScale(0.6);
+    this._infoPopup.add(_0x3cdf70c);
     yPos += 30;
-    const _0x3cdf70b = this.add.bitmapText(xPos, yPos, "goldFont", "bog, aloaf, arbstro, and PinkDev", 40).setOrigin(0.5, 0.5).setScale(0.6);
+    const _0x3cdf70b = this.add.bitmapText(xPos, yPos, "goldFont", "PinkDev, t0nchi7, arbstro", 40).setOrigin(0.5, 0.5).setScale(0.6);
     this._infoPopup.add(_0x3cdf70b);
+    yPos += 30;
+    const _0x3cdf70d = this.add.bitmapText(xPos, yPos, "goldFont", " and rohanis0000", 40).setOrigin(0.5, 0.5).setScale(0.6);
+    this._infoPopup.add(_0x3cdf70d);
     yPos += 30;
     const _0x97b2a9 = this.add.text(xPos, 463, "© 2026 RobTop Games. All rights reserved.", {
       fontSize: "12px",
@@ -4371,10 +5941,40 @@ class xs extends Phaser.Scene {
         }
       });
     }
+    //icon stuff the threequel
+    if (this._iconBtn) {
+  this._closeIconSelector && this._closeIconSelector(true);
+  this.tweens.killTweensOf(this._iconBtn);
+  this.tweens.add({
+    targets: this._iconBtn,
+    scale: 0.01,
+    duration: 200,
+    ease: "Quad.In",
+    onComplete: () => {
+      this._iconBtn.destroy();
+      this._iconBtn = null;
+    }
+  });
+}
+  //creator stuff the threequel
+    if (this._creatorBtn) {
+  this._closeCreatorMenu && this._closeCreatorMenu(true);
+  this.tweens.killTweensOf(this._creatorBtn);
+  this.tweens.add({
+    targets: this._creatorBtn,
+    scale: 0.01,
+    duration: 200,
+    ease: "Quad.In",
+    onComplete: () => {
+      this._creatorBtn.destroy();
+      this._creatorBtn = null;
+    }
+  });
+}
     if (this._robLogo) {
       this.tweens.add({
         targets: this._robLogo,
-        y: n + this._robLogo.height,
+        y: screenHeight + this._robLogo.height,
         duration: 300,
         ease: "Quad.In",
         onComplete: () => {
@@ -4437,7 +6037,7 @@ class xs extends Phaser.Scene {
         this.tweens.killTweensOf(_0xaa3a95);
         this.tweens.add({
           targets: _0xaa3a95,
-          y: n + _0xaa3a95.height,
+          y: screenHeight + _0xaa3a95.height,
           duration: 300,
           ease: "Quad.In",
           onComplete: () => _0xaa3a95.destroy()
@@ -4457,7 +6057,7 @@ class xs extends Phaser.Scene {
         }
       });
     }
-    this._cameraX = -h;
+    this._cameraX = -centerX;
     this._cameraY = 0;
     this._cameraXRef._v = this._cameraX;
     this._prevCameraX = this._cameraX;
@@ -4495,6 +6095,7 @@ class xs extends Phaser.Scene {
     if (!this._slideIn && !this._state.isDead) {
       this._state.upKeyDown = true;
       this._state.upKeyPressed = true;
+      this._state.queuedHold = true;
       if (!this._state.isFlying && !this._state.isWave && this._state.canJump) {
         this._player.updateJump(0);
         this._totalJumps++;
@@ -4504,17 +6105,18 @@ class xs extends Phaser.Scene {
   _releaseButton() {
     this._state.upKeyDown = false;
     this._state.upKeyPressed = false;
+    this._state.queuedHold = false;
   }
   _positionMenuItems() {
-    const _0x1e5db8 = r / 2;
+    const _0x1e5db8 = screenWidth / 2;
     if (this._logo) {
       this._logo.x = _0x1e5db8;
     }
     if (this._menuInfoBtn) {
-      this._menuInfoBtn.x = r - 30 - 3;
+      this._menuInfoBtn.x = screenWidth - 30 - 3;
     }
     if (this._copyrightText) {
-      this._copyrightText.x = r - 20;
+      this._copyrightText.x = screenWidth - 20;
     }
     if (this._tryMeImg) {
       this._tryMeImg.x = _0x1e5db8 + 175;
@@ -4537,26 +6139,52 @@ class xs extends Phaser.Scene {
       });
     }
     if (this._downloadBtns) {
-      const _0x285ef7 = r - 130;
+      const _0x285ef7 = screenWidth - 130;
       const _0x4a8263 = 555;
       const _0x23d03e = 210;
       for (let _0x1bdfae = 0; _0x1bdfae < this._downloadBtns.length; _0x1bdfae++) {
         this._downloadBtns[_0x1bdfae].setPosition(_0x285ef7 - _0x1bdfae * _0x23d03e, _0x4a8263);
       }
     }
+    if (this._iconBtn) {
+      this._iconBtn.x = (screenWidth / 2) - this._playBtn.width / 2 - 100 - (this._iconBtn.width * this._iconBtn.scaleX) / 2;
+      this.tweens.killTweensOf(this._iconBtn, "y");
+      this._iconBtn.y = 320;
+      this.tweens.add({
+        targets: this._iconBtn,
+        y: 324,
+        duration: 750,
+        ease: "Quad.InOut",
+        yoyo: true,
+        repeat: -1
+      });
+    }
+    if (this._creatorBtn) {
+      this._creatorBtn.x = (screenWidth / 2) + this._playBtn.width / 2 + 100 + (this._creatorBtn.width * this._creatorBtn.scaleX) / 2;
+      this.tweens.killTweensOf(this._creatorBtn, "y");
+      this._creatorBtn.y = 320;
+      this.tweens.add({
+        targets: this._creatorBtn,
+        y: 324,
+        duration: 750,
+        ease: "Quad.InOut",
+        yoyo: true,
+        repeat: -1
+      });
+    }
   }
   _positionAttemptsLabel() {
-    let _0xdbdd91 = this._cameraX + r / 2;
+    let _0xdbdd91 = this._cameraX + screenWidth / 2;
     if (this._attempts > 1) {
       _0xdbdd91 += 100;
     }
     this._attemptsLabel.setPosition(_0xdbdd91, 150);
   }
   _resetGameplayState() {
-    this._cameraX = -h;
+    this._cameraX = -centerX;
     this._cameraY = 0;
-    this._cameraXRef._v = -h;
-    this._prevCameraX = -h;
+    this._cameraXRef._v = -centerX;
+    this._prevCameraX = -centerX;
     this._playerWorldX = 0;
     this._deltaBuffer = 0;
     this._deathTimer = 0;
@@ -4580,7 +6208,9 @@ class xs extends Phaser.Scene {
     this._level.resetGroundState();
     this._level.resetColorTriggers();
     this._level.resetEnterEffectTriggers();
+    this._level.resetMoveTriggers();
     this._level.resetVisibility();
+    if (this._orbGfx) { this._orbGfx.clear(); }
     this._colorManager.reset();
     this._audio.reset();
     this._audio.startMusic();
@@ -4589,6 +6219,8 @@ class xs extends Phaser.Scene {
       this._pauseContainer.destroy();
       this._pauseContainer = null;
     }
+    this._noclipCheckbox = null;
+    this._showHitboxesCheckbox = null;
     this._pauseBtn.setVisible(true).setAlpha(75 / 255);
     this._attemptsLabel.setText("Attempt " + this._attempts);
     this._attemptsLabel.setVisible(true);
@@ -4613,24 +6245,26 @@ class xs extends Phaser.Scene {
   _applyScreenResize() {
     if (this.scale.isFullscreen) {
       const _0x5bc34b = window.innerWidth / window.innerHeight;
-      l(Math.round(n * _0x5bc34b));
+      l(Math.round(screenHeight * _0x5bc34b));
     }
-    this.scale.setGameSize(r, n);
+    this.scale.setGameSize(screenWidth, screenHeight);
     this.scale.refresh();
-    this._bg.setSize(r, n);
-    this._pauseBtn.x = r - 30;
+    this._bg.setSize(screenWidth, screenHeight);
+    this._pauseBtn.x = screenWidth - 30;
     if (this._menuActive) {
       this._positionMenuItems();
     }
     if (this._paused && this._pauseContainer) {
       this._pauseContainer.destroy();
       this._pauseContainer = null;
+      this._noclipCheckbox = null;
+      this._showHitboxesCheckbox = null;
       this._buildPauseOverlay();
     }
     this._level.resizeScreen();
     if (!this._menuActive) {
       const _0x56287b = this._cameraX;
-      this._cameraX = this._playerWorldX - h;
+      this._cameraX = this._playerWorldX - centerX;
       this._cameraXRef._v = this._cameraX;
       this._level.additiveContainer.x = -this._cameraX;
       this._level.additiveContainer.y = this._cameraY;
@@ -4701,6 +6335,11 @@ class xs extends Phaser.Scene {
       this._fpsFrames = 0;
     }
     if (this._paused) {
+      if ((this._spaceKey.isDown || this._upKey.isDown || this._wKey.isDown) && !this._spaceWasDown) {
+        setTimeout(() => {
+          this._resumeGame();
+        }, 75);
+      }
       this._deltaBuffer = 0;
       return;
     }
@@ -4708,22 +6347,24 @@ class xs extends Phaser.Scene {
       if ((this._spaceKey.isDown || this._upKey.isDown || this._wKey.isDown) && !this._spaceWasDown) {
         this._spaceWasDown = true;
         this._audio.playEffect("playSound_01", {
-          volume: 1
+          volume: 1 
         });
         this._levelLabel.setVisible(false)
         this._leftBtn.setVisible(false)
         this._rightBtn.setVisible(false)
-        this._percentageLabel.setVisible(true)
+        this._percentageLabel.setVisible(window.showPercentage)
         this._startGame();
         return;
       }
-      if (this._leftKey.isDown || this._rightKey.isDown || this._aKey.isDown || this._dKey.isDown) {
-        if (this._leftKey.isDown || this._aKey.isDown) {
-          window.leftbuttoncallback();
-        } else {
-          window.rightbuttoncallback();
+      const _arrowLeft = this._leftKey.isDown || this._aKey.isDown;
+      const _arrowRight = this._rightKey.isDown || this._dKey.isDown;
+      if ((_arrowLeft || _arrowRight) && !this._arrowWasDown) {
+        if (this._levelSelectOverlay) {
+          if (_arrowLeft) window.leftbuttoncallback();
+          else window.rightbuttoncallback();
         }
       }
+      this._arrowWasDown = _arrowLeft || _arrowRight;
       this._spaceWasDown = this._spaceKey.isDown || this._upKey.isDown || this._wKey.isDown;
       const _0x1e9cf4 = Math.min(_0xaf2ffd / 1000 * 60, 2);
       const _0x2e19f3 = 0.25;
@@ -4762,7 +6403,7 @@ class xs extends Phaser.Scene {
         this._slideIn = false;
         this._deltaBuffer = 0;
         this._playerWorldX = 0;
-        this._cameraX = this._playerWorldX - h;
+        this._cameraX = this._playerWorldX - centerX;
         this._cameraXRef._v = this._cameraX;
         const _0x490749 = this._cameraX - this._slideGroundX;
         this._level.shiftGroundTiles(_0x490749);
@@ -4788,6 +6429,7 @@ class xs extends Phaser.Scene {
     this._spaceWasDown = _0x368ad9;
     if (!!this.input.activePointer.isDown && !this._state.upKeyDown && !this._state.isDead) {
       this._state.upKeyDown = true;
+      this._state.queuedHold = true;
     }
     this._level.updateEndPortalY(this._cameraY, this._state.isFlying || this._state.isWave);
     if (!this._levelWon && !this._state.isDead && this._level.endXPos > 0) {
@@ -4833,6 +6475,7 @@ class xs extends Phaser.Scene {
         this._lastPercent = Math.min(99, Math.max(0, Math.floor(_0x169d53 / _0x435587 * 100)));
         if (this._lastPercent > this._bestPercent) {
           this._bestPercent = this._lastPercent;
+          localStorage.setItem("bestPercent_" + (window.currentlevel[2] || "level_1"), this._bestPercent);
           this._hadNewBest = true;
           this._showNewBest();
         }
@@ -4860,7 +6503,47 @@ class xs extends Phaser.Scene {
         }
       }
     }
+    if (this._level && this._level._sawSprites) {
+      const _sawRot = _0xaf2ffd * 0.003;
+      for (let _saw of this._level._sawSprites) {
+        if (_saw && _saw.active) _saw.rotation += _sawRot;
+      }
+    }
     this._level.updateAudioScale(this._audio.getMeteringValue());
+    if (!this._orbGfx) {
+      this._orbGfx = this.add.graphics().setDepth(54).setBlendMode(S);
+    }
+    this._orbParticleAngle = ((this._orbParticleAngle || 0) + _0xaf2ffd * 0.004) % (Math.PI * 2);
+    this._orbGfxTimer = (this._orbGfxTimer || 0) + _0xaf2ffd;
+    if (this._orbGfxTimer > 33) {
+      this._orbGfxTimer = 0;
+      this._orbGfx.clear();
+      if (this._level && this._level._orbSprites && this._level.container) {
+        try {
+        let _drawn = 0;
+        for (let _oSpr of this._level._orbSprites) {
+          if (_drawn >= 4) break;
+          if (!_oSpr || !_oSpr.visible || !_oSpr.active || !_oSpr.scene) continue;
+          const _sx = _oSpr.x + this._level.container.x;
+          const _sy = _oSpr.y + this._level.container.y;
+          if (_sx < -40 || _sx > screenWidth + 40 || _sy < -40 || _sy > screenHeight + 40) continue;
+          _drawn++;
+          const _orbTint = _oSpr.tintTopLeft !== undefined && _oSpr.tintTopLeft !== 16777215 ? _oSpr.tintTopLeft : window.mainColor;
+          for (let _pi = 0; _pi < 5; _pi++) {
+            const _orbitSpeed = 0.7 + (_pi % 3) * 0.35;
+            const _orbitR = 34 + (_pi * 5 % 17);
+            const _ang = this._orbParticleAngle * _orbitSpeed + (_pi * Math.PI * 2 / 5);
+            const _px = _sx + Math.cos(_ang) * _orbitR;
+            const _py = _sy + Math.sin(_ang) * (_orbitR * 0.85);
+            const _size = (window.orbParticleSize || 3.5) + (_pi % 3) * 1.0;
+            const _alpha = 0.5 + (_pi % 4) * 0.12;
+            this._orbGfx.fillStyle(_orbTint, _alpha);
+            this._orbGfx.fillRect(_px - _size, _py - _size, _size * 2, _size * 2);
+          }
+        }
+        } catch(e) {}
+      }
+    }
     let _0x30fa5d = this._quantizeDelta(_0xaf2ffd);
     let _0x5efc2d = _0x30fa5d > 0 ? Math.max(1, Math.round(_0x30fa5d * 4)) : 0;
     if (_0x5efc2d > 60) {
@@ -4874,7 +6557,7 @@ class xs extends Phaser.Scene {
       this._state.lastY = this._state.y;
       this._player.updateJump(_0x5caeb1);
       this._state.y += this._state.yVelocity * _0x5caeb1;
-      this._player.checkCollisions(this._playerWorldX - h);
+      this._player.checkCollisions(this._playerWorldX - centerX);
       this._playerWorldX += _0x5dfd5a;
 if (!this._state.isFlying && !this._state.isWave) {
   if (this._state.isBall) {
@@ -4884,14 +6567,16 @@ if (!this._state.isFlying && !this._state.isWave) {
     this._player.updateGroundRotation(_0x5caeb1);
   } else if (this._player.rotateActionActive) {
     this._player.updateRotateAction(u);
+  } else if (this._state.isDashing) {
+    this._player.runRotateAction();
   }
 }
     }
     this._state.lastY = _0x23505e;
     if (!this._endCameraOverride) {
-      const _0xe48698 = this._playerWorldX - h;
+      const _0xe48698 = this._playerWorldX - centerX;
       if (this._level.endXPos > 0) {
-        const _0x24670d = this._level.endXPos - r;
+        const _0x24670d = this._level.endXPos - screenWidth;
         if (_0xe48698 >= _0x24670d - 200) {
           this._endCameraOverride = true;
           this._cameraX = _0xe48698;
@@ -4940,13 +6625,15 @@ if (!this._state.isFlying && !this._state.isWave) {
         this._colorManager.triggerColor(gs, _0x2001f6.color, _0x2001f6.duration);
       }
     }
+    this._level.checkMoveTriggers(_0x5464ab);
+    this._level.stepMoveTriggers(_0xaf2ffd / 1000);
     this._colorManager.step(_0xaf2ffd / 1000);
     this._bg.setTint(this._colorManager.getHex(fs));
     this._level.setGroundColor(this._colorManager.getHex(gs));
     this._level.updateVisibility(this._cameraX);
     this._level.checkEnterEffectTriggers(_0x5464ab);
     this._level.applyEnterEffects(this._cameraX);
-    this._glitterCenterX = this._cameraX + r / 2;
+    this._glitterCenterX = this._cameraX + screenWidth / 2;
     this._glitterCenterY = T - this._cameraY;
     this._updateBackground();
     this._level.stepGroundAnimation(_0xaf2ffd / 1000);
@@ -4965,14 +6652,14 @@ _applyMirrorEffect() {
     if (isMirrored) {
       for (const c of containers) {
         c.scaleX = -1;
-        c.x = this._cameraX + r;
+        c.x = this._cameraX + screenWidth;
       }
       for (const tile of this._level._groundTiles) {
-        tile.x = r - tile.x - this._level._tileW;
+        tile.x = screenWidth - tile.x - this._level._tileW;
         tile.setFlipX(true);
       }
       for (const tile of this._level._ceilingTiles) {
-        tile.x = r - tile.x - this._level._tileW;
+        tile.x = screenWidth - tile.x - this._level._tileW;
         tile.setFlipX(true);
       }
     } else {
@@ -4989,10 +6676,10 @@ _applyMirrorEffect() {
     this._bg.setFlipX(isMirrored);
   }
   _getMirrorXOffset(xOffset) {
-    return this._state.mirrored ? r - xOffset : xOffset;
+    return this._state.mirrored ? screenWidth - xOffset : xOffset;
   }
   _showNewBest() {
-    let _0x9f2437 = r / 2;
+    let _0x9f2437 = screenWidth / 2;
     let _0x12bde3 = this.add.image(0, 0, "GJ_WebSheet", "GJ_newBest_001.png").setOrigin(0.5, 1);
     let _0x544c9c = this.add.bitmapText(0, 2, "bigFont", this._lastPercent + "%", 65).setOrigin(0.5, 0).setScale(1.1);
     let _0x326cb9 = this.add.container(_0x9f2437, 300, [_0x12bde3, _0x544c9c]).setScrollFactor(0).setDepth(60).setScale(0.01);
@@ -5021,10 +6708,13 @@ _applyMirrorEffect() {
     this._player.playEndAnimation(this._level.endXPos, () => this._levelComplete(), this._endPortalGameY);
   }
   _levelComplete() {
+    this._bestPercent = 100;
+    localStorage.setItem("bestPercent_" + (window.currentlevel[2] || "level_1"), 100);
+
     const _0x356782 = this._level.endXPos - this._cameraX;
     const _0x2d967b = b(this._endPortalGameY) + this._cameraY;
     for (let _0x481f7c = 0; _0x481f7c < 5; _0x481f7c++) {
-      this.time.delayedCall(_0x481f7c * 50, () => _s(this, _0x356782, _0x2d967b, 10, r, 500, false, true, window.mainColor));
+      this.time.delayedCall(_0x481f7c * 50, () => _s(this, _0x356782, _0x2d967b, 10, screenWidth, 500, false, true, window.mainColor));
     }
     _s(this, _0x356782, _0x2d967b, 10, 1000, 500, true, false, window.mainColor);
     this._showCompleteEffect();
@@ -5040,7 +6730,7 @@ _applyMirrorEffect() {
       const _0x2cc21f = _0x29d856 * 1;
       const _0x26b2b1 = _0x29d856 * 30;
       const _0x6f49c1 = _0x29d856 * 20;
-      const _0x232789 = Math.round(Math.sqrt(r ** 2 + 102400)) + _0x29d856 * 32.5;
+      const _0x232789 = Math.round(Math.sqrt(screenWidth ** 2 + 102400)) + _0x29d856 * 32.5;
       const _0x1c105b = 180;
       const _0x586720 = 40;
       const _0x57b9ff = 195;
@@ -5116,7 +6806,7 @@ _applyMirrorEffect() {
     this.time.delayedCall(1950, () => this._showCompleteText());
   }
   _showCompleteText() {
-    const _0x56628c = r / 2;
+    const _0x56628c = screenWidth / 2;
     const _0x45ab26 = this.add.image(_0x56628c, 250, "GJ_WebSheet", "GJ_levelComplete_001.png").setScrollFactor(0).setDepth(60).setScale(0.01);
     this.tweens.add({
       targets: _0x45ab26,
@@ -5174,10 +6864,10 @@ _applyMirrorEffect() {
     }
     const _0x2eadf2 = this._level.endXPos - this._cameraX;
     const _0x380b24 = b(this._endPortalGameY) + this._cameraY;
-    _s(this, _0x2eadf2, _0x380b24, 10, r, 800, true, false, window.mainColor);
+    _s(this, _0x2eadf2, _0x380b24, 10, screenWidth, 800, true, false, window.mainColor);
     _s(this, _0x56628c, 250, 10, 1000, 800, true, false, window.mainColor);
     for (let _0x579e05 = 0; _0x579e05 < 5; _0x579e05++) {
-      this.time.delayedCall(_0x579e05 * 50, () => _s(this, _0x2eadf2, _0x380b24, 10, r, 500, false, true, window.mainColor));
+      this.time.delayedCall(_0x579e05 * 50, () => _s(this, _0x2eadf2, _0x380b24, 10, screenWidth, 500, false, true, window.mainColor));
     }
     for (let _0x429722 = 0; _0x429722 < 10; _0x429722++) {
       const _0xbf7dd0 = _0x429722 * 150 + (Math.random() * 160 - 80);
@@ -5193,9 +6883,9 @@ _applyMirrorEffect() {
         duration: 300
       });
     }
-    const _0x384f9e = r / 2;
+    const _0x384f9e = screenWidth / 2;
     const _0x1aa656 = 320;
-    this._endLayerOverlay = this.add.rectangle(_0x384f9e, _0x1aa656, r, n, 0, 0).setScrollFactor(0).setDepth(200).setInteractive();
+    this._endLayerOverlay = this.add.rectangle(_0x384f9e, _0x1aa656, screenWidth, screenHeight, 0, 0).setScrollFactor(0).setDepth(200).setInteractive();
     this._endLayerInternal = this.add.container(0, -640).setScrollFactor(0).setDepth(201);
     this.tweens.add({
       targets: this._endLayerOverlay,
@@ -5217,7 +6907,7 @@ _applyMirrorEffect() {
     });
     const _0x595215 = 712;
     const _0x950c8d = 460;
-    const _0x2a115c = (r - _0x595215) / 2;
+    const _0x2a115c = (screenWidth - _0x595215) / 2;
     this._endLayerInternal.add(this.add.rectangle(_0x2a115c + 356, 310, _0x595215, _0x950c8d, 0, 180 / 255));
     const _0x43f2e3 = this.textures.getFrame("GJ_WebSheet", "GJ_table_side_001.png");
     const _0x3feccc = _0x43f2e3 ? _0x950c8d / _0x43f2e3.height : 1;
@@ -5423,7 +7113,7 @@ function _s(_0xae9c8f, _0xe5190e, _0x399b97, _0x3f3165, _0x1f56bc, _0x560f20, _0
 }
 function ws(_0x13c75c, _0x23c5aa = 16777215, _0x52bb5b = 16777215) {
   const _0x2076d4 = 200;
-  const _0x4eb200 = _0x2076d4 + (r - 400) * Math.random();
+  const _0x4eb200 = _0x2076d4 + (screenWidth - 400) * Math.random();
   const _0x126811 = _0x2076d4 + Math.random() * 240;
   _s(_0x13c75c, _0x4eb200, _0x126811, 40, 140 + Math.random() * 60, 500, true, true, _0x52bb5b);
   _0x13c75c.add.particles(_0x4eb200, _0x126811, "GJ_WebSheet", {
@@ -5463,8 +7153,8 @@ function ws(_0x13c75c, _0x23c5aa = 16777215, _0x52bb5b = 16777215) {
 }
 const Ss = {
   type: Phaser.AUTO,
-  width: r,
-  height: n,
+  width: screenWidth,
+  height: screenHeight,
   resolution: 1,
   fps: {
     smoothStep: true
