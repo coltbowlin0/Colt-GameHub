@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <title>Colt 45's Studios</title>
   <link rel="icon" type="image/png" href="https://media.gq.com/photos/5fbd3397fff3e5e56de13fc1/16:9/w_2240,c_limit/Riz_Playlist.jpg">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KG632Y6TD5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-KG632Y6TD5');
+  </script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -28,14 +37,18 @@
     }
 
     /* Tabs Navigation Container */
+/* Main Layout Bar containing [Games] [Search] [Movies] */
     .tab-navigation {
       position: fixed;
-      top: 75px;
+      top: 80px;              /* Placed right below the main header banner */
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 15px;
+      align-items: center;    /* Vertically aligns buttons and search bar perfectly */
+      justify-content: center;
+      gap: 30px;              /* Clean, proportional spacing between items */
       z-index: 1000;
+      width: auto;
     }
 
     .tab-btn {
@@ -49,26 +62,24 @@
       border-radius: 30px;
       cursor: pointer;
       transition: all 0.3s ease;
+      white-space: nowrap;    /* Prevents text from breaking onto two lines */
     }
 
     .tab-btn:hover {
       color: white;
-      border-color: #0077cc;
+      border-color: #ffffff;
     }
 
     .tab-btn.active {
       color: white;
-      background: #004e7a;
-      border-color: #00aaff;
-      box-shadow: 0 0 15px rgba(0, 170, 255, 0.4);
+      background: #000000;
+      border-color: #ffffff;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
     }
 
-    /* Search bar shifted down to accommodate tabs */
+    /* Search bar centered smoothly between the two tabs */
     .search-container {
-      position: fixed;
-      top: 135px;
-      left: 50%;
-      transform: translateX(-50%);
+      position: relative;     /* Removed fixed positioning so it flows naturally between buttons */
       display: flex;
       align-items: center;
       background: rgba(40, 40, 40, 0.9);
@@ -77,7 +88,6 @@
       padding: 6px 12px;
       width: 320px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-      z-index: 999;
       transition: width 0.3s ease;
     }
 
@@ -135,7 +145,7 @@
     }
 
     .main-wrapper {
-      margin-top: 220px;
+      margin-top: 145px;
     }
 
     .card {
@@ -204,12 +214,19 @@
 </head>
 
 <body>
-
+  
   <h1>Colt 45's Studios</h1>
 
   <!-- Tabs Navigation Buttons -->
+  <!-- Navigation bar nesting Games, Search, and Movies together -->
   <div class="tab-navigation">
     <button class="tab-btn active" onclick="switchTab('gamesTab', this)">Games</button>
+    
+    <div class="search-container" id="searchContainer">
+      <input type="text" id="gameSearch" placeholder="Search...">
+      <button id="searchBtn">🔍</button>
+    </div>
+    
     <button class="tab-btn" onclick="switchTab('moviesTab', this)">Movies</button>
   </div>
 
@@ -413,7 +430,6 @@
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1yLHdofFPEuPg7-LaT1ovYIrNyV-wnO9z/preview" target="_blank">Fantastic Four 2005</a></div>
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1pELp1rSXtRN77Z3G7Tx53RLp1ww7C68I/preview" target="_blank">Friday the 13th Part 1</a></div>
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1sohGXVH0EQ0kwdwtCqpmj3nb67sIuHRH/preview" target="_blank">Ford Vs. Ferrari</a></div>
-        
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1lue4b7yqB_SwqDg_SPqtEQs-6mtLpq21/preview" target="_blank">Good Burger</a></div>
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1dw3GmEYxqo0XBB2m4rEH1l9R8C4Fa0c4/preview" target="_blank">Ghost Rider</a></div>
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1h4FB7LWa-AVG5DmOXHNT3TGh_iUHj12l/preview" target="_blank">Ghostbusters</a></div>
