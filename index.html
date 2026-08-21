@@ -5,7 +5,7 @@
   <title>Colt 45's Studios™</title>
   <link rel="icon" type="image/png" href="https://media.gq.com/photos/5fbd3397fff3e5e56de13fc1/16:9/w_2240,c_limit/Riz_Playlist.jpg">
   <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-KG632Y6TD5"></script>
+  <script async src="https://googletagmanager.com"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
@@ -24,29 +24,44 @@
       overflow-x: hidden;
     }
 
-    /* Header */
-    h1 {
+    .top-header-banner {
       position: fixed;
       top: 0;
+      left: 0;
       width: 100%;
+      height: 80px;
       background: #1a1a1a;
-      padding: 20px 0;
-      margin: 0;
+      display: flex;
+      align-items: center;
       z-index: 1000;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      box-sizing: border-box;
+      padding: 0 30px;
     }
 
-    /* Tabs Navigation Container */
-/* Main Layout Bar containing [Games] [Search] [Movies] */
+    .header-left {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .header-center {
+      margin: 0;
+      font-size: 2rem;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
     .tab-navigation {
       position: fixed;
-      top: 80px;              /* Placed right below the main header banner */
+      top: 100px;              
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      align-items: center;    /* Vertically aligns buttons and search bar perfectly */
+      align-items: center;    
       justify-content: center;
-      gap: 30px;              /* Clean, proportional spacing between items */
+      gap: 30px;              
       z-index: 1000;
       width: auto;
     }
@@ -62,7 +77,7 @@
       border-radius: 30px;
       cursor: pointer;
       transition: all 0.3s ease;
-      white-space: nowrap;    /* Prevents text from breaking onto two lines */
+      white-space: nowrap;    
     }
 
     .tab-btn:hover {
@@ -77,9 +92,7 @@
       box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
     }
 
-    /* Search bar centered smoothly between the two tabs */
     .search-container {
-      position: relative;     /* Removed fixed positioning so it flows naturally between buttons */
       display: flex;
       align-items: center;
       background: rgba(40, 40, 40, 0.9);
@@ -113,7 +126,6 @@
       cursor: pointer;
     }
 
-    /* Tab Content Control */
     .tab-content {
       display: none;
     }
@@ -122,7 +134,6 @@
       display: block;
     }
 
-    /* Section Titles */
     .section-title {
       color: #00aaff;
       font-size: 24px;
@@ -137,7 +148,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 25px;
-      padding: 20px 200px; /* Side padding from your original */
+      padding: 20px 200px;
       max-width: 1700px;
       margin: 0 auto;
       width: 100%;
@@ -145,7 +156,7 @@
     }
 
     .main-wrapper {
-      margin-top: 145px;
+      margin-top: 180px;
     }
 
     .card {
@@ -163,7 +174,7 @@
       animation: fadePop 0.5s forwards;
       transition: transform 0.25s, box-shadow 0.25s;
       border: 2px solid #004e7a;
-      margin: auto; /* Centers card in grid cell */
+      margin: auto;
     }
 
     .card:hover {
@@ -215,10 +226,11 @@
 
 <body>
   
-  <h1>Colt 45's Studios™</h1>
+  <div class="top-header-banner">
+    <h1 class="header-left">Blocked Counter: 2</h1>
+    <h1 class="header-center">Colt 45's Studios™</h1>
+  </div>
 
-  <!-- Tabs Navigation Buttons -->
-  <!-- Navigation bar nesting Games, Search, and Movies together -->
   <div class="tab-navigation">
     <button class="tab-btn active" onclick="switchTab('gamesTab', this)">Games</button>
     
@@ -250,7 +262,7 @@
     <!-- GAMES SECTION TAB -->
     <div id="gamesTab" class="tab-content active">
       <div class="content-grid" id="gameList">
-        <div class="card"><a href="html5games/Dino.html" target="_blank">Chrome Dino</a></div>
+        <!-- <div class="card"><a href="html5games/Dino.html" target="_blank">Chrome Dino</a></div> !-->
         <div class="card"><a href="games/Friday-Night-Funkin/index.html" target="_blank">Friday Night Funkin'</a></div>
         <div class="card"><a href="html5games/otheridlebreakout.html" target="_blank">Breakshoot Idle</a></div>
         <div class="card"><a href="html5games/BouncyMotors.html" target="_blank">Bouncy Motors</a></div>
@@ -262,25 +274,25 @@
         <!-- <div class="card"><a href="html5games/Minato.html" target="_blank">Minato</a></div> !-->
         <!-- <div class="card"><a href="html5games/highwayracer.html" target="_blank">Highway Racer</a></div> !-->
         <div class="card"><a href="games/polytrack/index.html" target="_blank">Poly Track</a></div>
-        <div class="card"><a href="html5games/StickMenParkor.html" target="_blank">Stick Man Parkour</a></div>
+        <!-- <div class="card"><a href="html5games/StickMenParkor.html" target="_blank">Stick Man Parkour</a></div> !-->
         <!-- <div class="card"><a href="html5games/BasketballRandomPro.html" target="_blank">Basketball Random Pro 2P</a></div> !-->
         <!-- <div class="card"><a href="html5games/DriftHunters.html" target="_blank">Drift Hunters</a></div> !-->
         <!-- <div class="card"><a href="html5games/taptapshots.html" target="_blank">Tap Tap Shots</a></div> !-->
-        <div class="card"><a href="html5games/SoccerRandomPro.html" target="_blank">Soccer Random Pro 2P</a></div>
+        <!-- <div class="card"><a href="html5games/SoccerRandomPro.html" target="_blank">Soccer Random Pro 2P</a></div> !-->
         <!-- <div class="card"><a href="html5games/Bloxorz.html" target="_blank">Bloxorz</a></div> !--> 
         <!-- <div class="card"><a href="html5games/WorldsHardestGame.html" target="_blank">World's Hardest Game</a></div> !-->
-        <div class="card"><a href="html5games/rooftopsniper.html" target="_blank">Rooftop Snipers</a></div>
+        <!-- <div class="card"><a href="html5games/rooftopsniper.html" target="_blank">Rooftop Snipers</a></div> !-->
         <!-- <div class="card"><a href="html5games/drunkenduel2.html" target="_blank">Drunken Duel 2</a></div> !-->
-        <div class="card"><a href="html5games/theimpossiblequiz.html" target="_blank">The Impossible Quiz</a></div>
+        <!-- <div class="card"><a href="html5games/theimpossiblequiz.html" target="_blank">The Impossible Quiz</a></div> !-->
         <!-- <div class="card"><a href="html5games/idlebreakout.html" target="_blank">Idle Breakout</a></div> !-->
         <!-- <div class="card"><a href="html5games/flappybrid.html" target="_blank">Flappy Bird</a></div> !-->
         <div class="card"><a href="html5games/wheeliebike.html" target="_blank">Wheelie Bike</a></div>
         <!-- <div class="card"><a href="html5games/GetonTop.html" target="_blank">Get on Top 2P</a></div> !-->
-        <div class="card"><a href="html5games/Run.html" target="_blank">Run 3</a></div>
+        <!-- <div class="card"><a href="html5games/Run.html" target="_blank">Run 3</a></div> !-->
         <!-- <div class="card"><a href="html5games/numbergame.html" target="_blank">2048</a></div> !-->
         <!-- <div class="card"><a href="html5games/trafficrider.html" target="_blank">Traffic Rider</a></div> !-->
         <!-- <div class="card"><a href="html5games/dreader.html" target="_blank">Dreader</a></div> !-->
-        <div class="card"><a href="html5games/leveldevil.html" target="_blank">Level Devil</a></div>
+        <!-- <div class="card"><a href="html5games/leveldevil.html" target="_blank">Level Devil</a></div> !-->
         <!-- <div class="card"><a href="html5games/fnafOrgi.html" target="_blank">FNAF Original</a></div> !-->
         <!-- <div class="card"><a href="html5games/baldisbasics.html" target="_blank">Baldi's Basics</a></div> !-->
         <!-- <div class="card"><a href="html5games/granny.html" target="_blank">Granny</a></div> !-->
@@ -294,11 +306,11 @@
         <!-- <div class="card"><a href="html5games/poker.html" target="_blank">3 Card Poker</a></div> !-->
         <!-- <div class="card"><a href="html5games/lottery.html" target="_blank">Baccarat</a></div> !-->
         <!-- <div class="card"><a href="html5games/adventurecapitalist.html" target="_blank">AdVenture Capitalist</a></div> !-->
-        <div class="card"><a href="html5games/mrbullet.html" target="_blank">Mr. Bullet</a></div>
+        <!-- <div class="card"><a href="html5games/mrbullet.html" target="_blank">Mr. Bullet</a></div> !-->
         <!-- <div class="card"><a href="html5games/knifehit.html" target="_blank">Knife Hit</a></div> !-->
         <!-- <div class="card"><a href="html5games/basketballgm.html" target="_blank">Basketball GM</a></div> !-->
         <!-- <div class="card"><a href="html5games/asseesmentexamination.html" target="_blank">Assessment Examination</a></div> !-->
-        <div class="card"><a href="html5games/bouncemasters.html" target="_blank">Bounce Masters</a></div>
+        <!-- <div class="card"><a href="html5games/bouncemasters.html" target="_blank">Bounce Masters</a></div> !-->
         <!-- <div class="card"><a href="html5games/angrybirds.html" target="_blank">Angry Birds</a></div> !-->
         <!-- <div class="card"><a href="html5games/bitlifesim.html" target="_blank">Bitlife Simulator</a></div> !-->
         <!-- <div class="card"><a href="html5games/whackyourboss.html" target="_blank">Whack Your Boss</a></div> !-->
@@ -309,7 +321,7 @@
         <!-- <div class="card"><a href="html5games/Binairo.html" target="_blank">Binairo</a></div> !-->
         <!-- <div class="card"><a href="html5games/retrobowl.html" target="_blank">Retro Bowl</a></div> !-->
         <!-- <div class="card"><a href="html5games/crossyroad.html" target="_blank">Crossy Road</a></div> !-->
-        <div class="card"><a href="html5games/cookieclicker.html" target="_blank">Cookie Clicker</a></div>
+        <!-- <div class="card"><a href="html5games/cookieclicker.html" target="_blank">Cookie Clicker</a></div> !-->
         <!-- <div class="card"><a href="html5games/CoreBall.html" target="_blank">Coreball</a></div> !-->
         <!-- <div class="card"><a href="html5games/slideinthewoods.html" target="_blank">Slide in the Woods</a></div> !-->
         <!-- <div class="card"><a href="html5games/stack.html" target="_blank">Stack</a></div> !-->
@@ -328,10 +340,10 @@
         <!-- <div class="card"><a href="html5games/hollowknight.html" target="_blank">Hollow Knight</a></div> !-->
         <!-- <div class="card"><a href="html5games/unfairflips.html" target="_blank">Unfair Flips</a></div> !-->
         <!-- <div class="card"><a href="html5games/basketballstars.html" target="_blank">Basketball Stars</a></div> !-->
-        <div class="card"><a href="html5games/8ballpool.html" target="_blank">8 Ball Pool</a></div>
-        <div class="card"><a href="html5games/escaperoad.html" target="_blank">Escape Road</a></div>
+        <!-- <div class="card"><a href="html5games/8ballpool.html" target="_blank">8 Ball Pool</a></div> !-->
+        <!-- <div class="card"><a href="html5games/escaperoad.html" target="_blank">Escape Road</a></div> !-->
         <!-- <div class="card"><a href="html5games/boxingrandom.html" target="_blank">Boxing Random</a></div> !-->
-        <div class="card"><a href="html5games/backyardbaseball.html" target="_blank">Backyard Baseball</a></div>
+        <!-- <div class="card"><a href="html5games/backyardbaseball.html" target="_blank">Backyard Baseball</a></div> !-->
         <div class="card"><a href="html5games/balatro.html" target="_blank">Balatro</a></div>
         <!-- <div class="card"><a href="html5games/undertale.html" target="_blank">Undertale</a></div> !--> 
         <div class="card"><a href="games/bendy/bendy.html" target="_blank">Bendy and the Ink Machine</a></div>
@@ -342,7 +354,7 @@
         <div class="card"><a href="games/people-playground/people-playground.html" target="_blank">People-Playground</a></div>
         <div class="card"><a href="games/raft/raft.html" target="_blank">Raft</a></div>
         <div class="card"><a href="emulator/games/Pac-Man.html" target="_blank">Pac-Man</a></div>
-        <div class="card"><a href="html5games/supermario64.html" target="_blank">Super Mario 64</a></div>
+        <!-- <div class="card"><a href="html5games/supermario64.html" target="_blank">Super Mario 64</a></div> !-->
         <div class="card"><a href="emulator/games/punchout.html" target="_blank">Mike Tyson's Punch-Out</a></div>
         <div class="card"><a href="emulator/games/supermariobros.html" target="_blank">Super Mario Bros.</a></div>
         <div class="card"><a href="emulator/games/donkeykong.html" target="_blank">Donkey Kong</a></div>
@@ -390,10 +402,10 @@
         <div class="card"><a href="games/untitled-goose-game/index.html" target="_blank">Goose Game</a></div>
         <div class="card"><a href="games/basketball-superstars/index.html" target="_blank">Basketball Superstars</a></div>
         <div class="card"><a href="html5games/crazycattle3d.html" target="_blank">Crazy Cattle 3D</a></div>
-        <div class="card"><a href="html5games/deltarune.html" target="_blank">Deltarune</a></div>
+        <!-- <div class="card"><a href="html5games/deltarune.html" target="_blank">Deltarune</a></div> !-->
         <!-- <div class="card"><a href="html5games/jetpackjoyride.html" target="_blank">Jetpack Joyride</a></div> -->
         <div class="card"><a href="games/BlockBlast/index.html" target="_blank">Blockblast</a></div>
-        <div class="card"><a href="html5games/justhitthebutton.html" target="_blank">Just Hit the Button</a></div>
+        <!-- <div class="card"><a href="html5games/justhitthebutton.html" target="_blank">Just Hit the Button</a></div> !-->
         <!-- <div class="card"><a href="html5games/Nation-States.html" target="_blank">NationStates</a></div> -->
         <div class="card"><a href="games/bergentruck/BERGENTRUCK_201X.html" target="_blank">BERGENTRUCK</a></div>
         <div class="card"><a href="games/CheeseRolling/index.html" target="_blank">CheeseRolling</a></div>
