@@ -135,13 +135,13 @@
     }
 
     .section-title {
-      color: #00aaff;
+      color: #ff0000;
       font-size: 24px;
       font-weight: bold;
       margin-top: 50px;
       margin-bottom: 20px;
       text-transform: uppercase;
-      text-decoration: underline #00aaff;
+      text-decoration: underline #363535;
     }
 
     .content-grid {
@@ -253,10 +253,7 @@
   <div class="text right" style="top: 450px;"><p>I am not responsible for what movies you watch!</p></div>
   <!-- <img class="side-text left" style="top: 800px;" src="ads/DEFUND.png" alt="AD">
   <img class="side-text right" style="top: 800px;" src="ads/ROUNDABOUTS.png" alt="AD"> !-->
-  <div class="search-container" id="searchContainer">
-    <input type="text" id="gameSearch" placeholder="Search...">
-    <button id="searchBtn">🔍</button>
-  </div>
+
 
   <div class="main-wrapper">
     <!-- GAMES SECTION TAB -->
@@ -271,7 +268,7 @@
         <!-- <div class="card"><a href="html5games/DriftBoss.html" target="_blank">Drift Boss</a></div> !--> <!--  !-->
         <div class="card"><a href="html5games/TinyFishing.html" target="_blank">Tiny Fishing</a></div>
         <!-- <div class="card"><a href="html5games/Webecomewhatweabehold.html" target="_blank">We become what We behold</a></div> !-->
-        <div class="card"><a href="games/SlopePlus1.3.1Web/index.html" target="_blank">Slope Plus</a></div>
+        <!--<div class="card"><a href="games/SlopePlus1.3.1Web/index.html" target="_blank">Slope Plus</a></div>!-->
         <!-- <div class="card"><a href="html5games/Minato.html" target="_blank">Minato</a></div> !-->
         <!-- <div class="card"><a href="html5games/highwayracer.html" target="_blank">Highway Racer</a></div> !-->
         <div class="card"><a href="games/polytrack/index.html" target="_blank">Poly Track</a></div>
@@ -337,7 +334,7 @@
         <!-- <div class="card"><a href="html5games/gunspin.html" target="_blank">GunSpin</a></div> !-->
         <div class="card"><a href="games/state.io/index.html" target="_blank">State.io</a></div>
         <!-- <div class="card"><a href="html5games/stackball.html" target="_blank">Stack Ball</a></div> !-->
-        <!--<div class="card"><a href="html5games/stickmanhook.html" target="_blank">Stick Man Hook</a></div> !-->
+        <div class="card"><a href="games/stickman-hook/index.html" target="_blank">Stick Man Hook</a></div>
         <!-- <div class="card"><a href="html5games/hollowknight.html" target="_blank">Hollow Knight</a></div> !-->
         <!-- <div class="card"><a href="html5games/unfairflips.html" target="_blank">Unfair Flips</a></div> !-->
         <!-- <div class="card"><a href="html5games/basketballstars.html" target="_blank">Basketball Stars</a></div> !-->
@@ -427,6 +424,19 @@
         <div class="card"><a href="games/tabs/index.html" target="_blank">(TABS)</a></div>
         <div class="card"><a href="games/WebBloxDemo/index.html" target="_blank">Roblox Demo</a></div>
         <div class="card"><a href="love2d/htmls/TSAgame.html" target="_blank">TSA Game Test</a></div>
+      </div>
+      <div id="governmentGames" class="government-games">
+        <h2 class="section-title" style="margin: 40px auto 20px; display: inline-block;">
+          Games I Stole From the Government
+        </h2>
+      </div>
+
+      <div class="content-grid" id="governmentGameList">
+        <div class="card"><a href="games/flappy-bill/index.html" target="_blank">Flappy Bill</a></div>
+        <div class="card"><a href="games/build-the-wall/index.html" target="_blank">Build the Wall</a></div>
+        <div class="card"><a href="games/rio-run/index.html" target="_blank">Rio Run</a></div>
+        <div class="card"><a href="games/supply-line/index.html" target="_blank">Supply Line</a></div>
+        <div class="card"><a href="games/trump-savings-tycoon/index.html" target="_blank">Trump Savings Tycoon</a></div>
       </div>
     </div>
 
@@ -527,6 +537,7 @@
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1yL6LrO5DUxd6n2sQWHKpZxgYun5TlH4W/preview" target="_blank">School of Rock</a></div>
         <div class="card movie-card"><a href="https://drive.google.com/file/d/1ebsvZszUWqeq2bMijfAp8Okx_iKLIom6/preview" target="_blank">Scary Movie 2026</a></div>
         <div class="card movie-card"><a href="https://drive.google.com/file/d/168ilpukPynuGXo-dSq6JivVGW7cMONZN/preview" target="_blank">Spider-Man Brand New Day</a></div>
+        <div class="card movie-card"><a href="https://drive.google.com/file/d/1OD13HoMSdyHfn1hINyfwn5bohB25NErZ/preview" target="_blank">Backrooms 2026</a></div>
       </div>
     </div>
   </div>
@@ -538,11 +549,13 @@
 
     function switchTab(tabId, buttonElement) {
       const tabs = document.getElementsByClassName('tab-content');
+
       for (let i = 0; i < tabs.length; i++) {
         tabs[i].classList.remove('active');
       }
 
       const buttons = document.getElementsByClassName('tab-btn');
+
       for (let i = 0; i < buttons.length; i++) {
         buttons[i].classList.remove('active');
       }
@@ -553,6 +566,7 @@
       searchInput.value = '';
       filterContent();
     }
+
 
     function filterContent() {
       const filter = searchInput.value.toLowerCase();
